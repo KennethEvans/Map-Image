@@ -1,0 +1,5 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android" >
+    <item android:id="@+id/open" android:title="@string/open_item" />
+    <item android:id="@+id/test" android:title="@string/test_item" />
+    <item android:id="@+id/reset" android:title="@string/reset_item" />
+</menu>
