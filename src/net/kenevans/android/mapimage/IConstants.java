@@ -33,12 +33,12 @@ public interface IConstants {
 	public static final String DEBUG_RAW_DIRNAME = "Test";
 	public static final String DEBUG_RAW_FILENAME = "Dilbert-1989-04-16.png";
 
-	
-	
-	
+	/** Extension for calibration files */
+	public static final String CALIB_EXT = "calib";
+
 	/** Directory on the SD card where strips are saved */
 	public static final String SD_CARD_MAP_IMAGE_DIRECTORY = "MapImage";
-	
+
 	public static final String PREF_FILENAME = "fileName";
 
 	// Messages

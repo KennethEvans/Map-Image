@@ -69,9 +69,13 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
 			List<File> fileList = new ArrayList<File>();
 			for (File file : files) {
 				if (!file.isDirectory()) {
-					fileList.add(file);
-					if (USE_ARRAY_LIST_ADAPTER) {
-						mFileNameList.add(file.getPath());
+					String ext = Utils.getExtension(file);
+					if (ext.equals("jpg") || ext.equals("jpeg")
+							|| ext.equals("png") || ext.equals("gif")) {
+						fileList.add(file);
+						if (USE_ARRAY_LIST_ADAPTER) {
+							mFileNameList.add(file.getPath());
+						}
 					}
 				}
 			}
