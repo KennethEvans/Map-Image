@@ -386,6 +386,10 @@ public class MapImageView extends ImageView implements IConstants {
 		this.mMapCalibration = mapCalibration;
 	}
 
+	public Location getLocation() {
+		return mLocation;
+	}
+
 	public void setMapCalibration(MapCalibration mapCalibration) {
 		this.mMapCalibration = mapCalibration;
 	}

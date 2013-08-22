@@ -82,6 +82,18 @@ public class MapImageActivity extends Activity implements IConstants,
 			mImageView.setLocation(null, null);
 			mImageView.invalidate();
 			return true;
+		case R.id.current_location:
+			Location location = mImageView.getLocation();
+			if (location == null) {
+				Utils.infoMsg(this, "Current location is not available");
+			} else {
+				double lon = location.getLongitude();
+				double lat = location.getLatitude();
+				String info = String.format("longitude=%.6f latitude=%.6f",
+						lon, lat);
+				Utils.infoMsg(this, info);
+			}
+			return true;
 		case R.id.test:
 			setNewImage();
 			return true;
@@ -95,7 +107,8 @@ public class MapImageActivity extends Activity implements IConstants,
 	@Override
 	protected void onResume() {
 		super.onResume();
-		Log.d(TAG, this.getClass().getSimpleName() + ": onResume: mUseLocation=" + mUseLocation);
+		Log.d(TAG, this.getClass().getSimpleName()
+				+ ": onResume: mUseLocation=" + mUseLocation);
 
 		// Restore the state
 		SharedPreferences prefs = getPreferences(MODE_PRIVATE);
@@ -118,10 +131,10 @@ public class MapImageActivity extends Activity implements IConstants,
 
 	@Override
 	protected void onPause() {
-		Log.d(TAG, this.getClass().getSimpleName() + ": onPause: mUseLocation=" + mUseLocation);
+		Log.d(TAG, this.getClass().getSimpleName() + ": onPause: mUseLocation="
+				+ mUseLocation);
 		super.onPause();
-		SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
-				.edit();
+		SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE).edit();
 		editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
 		editor.commit();
 		disableLocation();
