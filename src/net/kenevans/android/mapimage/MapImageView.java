@@ -22,11 +22,17 @@
 package net.kenevans.android.mapimage;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Matrix;
+import android.graphics.Paint;
 import android.graphics.PointF;
 import android.graphics.drawable.Drawable;
+import android.location.Location;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.GestureDetector;
+import android.view.GestureDetector.SimpleOnGestureListener;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
@@ -41,8 +47,14 @@ import android.widget.ImageView;
  */
 public class MapImageView extends ImageView implements IConstants {
 	// These matrices will be used to move and zoom image
-	Matrix matrix = new Matrix();
-	Matrix savedMatrix = new Matrix();
+	private Matrix mMatrix = new Matrix();
+	private Matrix mSavedMatrix = new Matrix();
+
+	private GestureDetector mGestureListener;
+	private Bitmap mGPSCursor;
+
+	private Location mLocation;
+	private MapCalibration mMapCalibration;
 
 	/** Flag to indicating no fitting or centering. */
 	public static final int IMAGEUNMODIFIED = 0x00;
@@ -56,29 +68,29 @@ public class MapImageView extends ImageView implements IConstants {
 	 * next called. Value is one of (IMAGEUNMODIFIED, IMAGECENTERED,
 	 * IMAGEFITTED). It only takes place when onMeasure is called.
 	 */
-	int fitImageMode = IMAGEFITTED | IMAGECENTERED;
+	private int fitImageMode = IMAGEFITTED | IMAGECENTERED;
 	// We can be in one of these 3 states
-	static final int NONE = 0;
-	static final int DRAG = 1;
-	static final int ZOOM = 2;
-	int mode = NONE;
+	private static final int NONE = 0;
+	private static final int DRAG = 1;
+	private static final int ZOOM = 2;
+	private int mode = NONE;
 
 	// Remember some things for zooming
 	private PointF start = new PointF();
 	private PointF mid = new PointF();
 	private float oldDist = 1f;
 
-	Context context;
+	private Context mContext;
 
 	/**
 	 * Use this constructor when calling from code.
 	 * 
-	 * @param context
+	 * @param mContext
 	 */
 	public MapImageView(Context context) {
 		super(context);
 		super.setClickable(true);
-		this.context = context;
+		this.mContext = context;
 		init();
 	}
 
@@ -91,7 +103,7 @@ public class MapImageView extends ImageView implements IConstants {
 	public MapImageView(Context context, AttributeSet attrs) {
 		super(context, attrs);
 		super.setClickable(true);
-		this.context = context;
+		this.mContext = context;
 		init();
 	}
 
@@ -99,73 +111,141 @@ public class MapImageView extends ImageView implements IConstants {
 	 * Does the additional setup in the constructor.
 	 */
 	private void init() {
-		setImageMatrix(matrix);
+		setImageMatrix(mMatrix);
 		setScaleType(ScaleType.MATRIX);
+
+		mGestureListener = new GestureDetector(mContext,
+				new MapImageGestureListener());
 
 		setOnTouchListener(new OnTouchListener() {
 			@Override
-			public boolean onTouch(View v, MotionEvent event) {
+			public boolean onTouch(View v, MotionEvent ev) {
 				// Handle touch events here...
-				switch (event.getAction() & MotionEvent.ACTION_MASK) {
+				switch (ev.getAction() & MotionEvent.ACTION_MASK) {
 				case MotionEvent.ACTION_DOWN:
-					savedMatrix.set(matrix);
-					start.set(event.getX(), event.getY());
-					Log.d(TAG, "mode=DRAG");
+					mSavedMatrix.set(mMatrix);
+					start.set(ev.getX(), ev.getY());
+					// Log.d(TAG, "mode=DRAG");
 					mode = DRAG;
 					break;
 				case MotionEvent.ACTION_POINTER_DOWN:
-					oldDist = spacing(event);
-					Log.d(TAG, "oldDist=" + oldDist);
+					oldDist = spacing(ev);
+					// Log.d(TAG, "oldDist=" + oldDist);
 					if (oldDist > 10f) {
-						savedMatrix.set(matrix);
-						midPoint(mid, event);
+						mSavedMatrix.set(mMatrix);
+						midPoint(mid, ev);
 						mode = ZOOM;
-						Log.d(TAG, "mode=ZOOM");
+						// Log.d(TAG, "mode=ZOOM");
 					}
 					break;
 				case MotionEvent.ACTION_UP:
-					int xDiff = (int) Math.abs(event.getX() - start.x);
-					int yDiff = (int) Math.abs(event.getY() - start.y);
+					int xDiff = (int) Math.abs(ev.getX() - start.x);
+					int yDiff = (int) Math.abs(ev.getY() - start.y);
 					if (xDiff < 8 && yDiff < 8) {
 						performClick();
 					}
 				case MotionEvent.ACTION_POINTER_UP:
 					mode = NONE;
-					Log.d(TAG, "mode=NONE");
+					// Log.d(TAG, "mode=NONE");
 					break;
 				case MotionEvent.ACTION_MOVE:
 					if (mode == DRAG) {
-						matrix.set(savedMatrix);
-						matrix.postTranslate(event.getX() - start.x,
-								event.getY() - start.y);
+						mMatrix.set(mSavedMatrix);
+						mMatrix.postTranslate(ev.getX() - start.x, ev.getY()
+								- start.y);
 					} else if (mode == ZOOM) {
-						float newDist = spacing(event);
-						Log.d(TAG, "newDist=" + newDist);
+						float newDist = spacing(ev);
+						// Log.d(TAG, "newDist=" + newDist);
 						if (newDist > 10f) {
-							matrix.set(savedMatrix);
+							mMatrix.set(mSavedMatrix);
 							float scale = newDist / oldDist;
-							matrix.postScale(scale, scale, mid.x, mid.y);
+							mMatrix.postScale(scale, scale, mid.x, mid.y);
 						}
 					}
 					break;
 				}
-				setImageMatrix(matrix);
-				return true; // indicate event was handled
+				setImageMatrix(mMatrix);
+
+				// Next send it to the GestureDetector
+				// (Otherwise would return true)
+				return mGestureListener.onTouchEvent(ev);
 			}
 		});
+
+		// Create the cursor bitmap
+		int size = 21;
+		mGPSCursor = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+		Paint paint = new Paint();
+		paint.setAntiAlias(true);
+		paint.setColor(0xFFFF0000);
+		Canvas canvas = new Canvas(mGPSCursor);
+		canvas.drawCircle(size / 2, size / 2, size / 2, paint);
 	}
 
 	@Override
 	protected void onLayout(boolean changed, int left, int top, int right,
 			int bottom) {
-		Log.d(TAG, this.getClass().getSimpleName() + ": onLayout:");
+		// Log.d(TAG, this.getClass().getSimpleName() + ": onLayout:");
 		super.onLayout(changed, left, top, right, bottom);
 		// Layout should be done
 		// Fit the image if specified
-		if (fitImageMode != 0) {
+		if (fitImageMode != IMAGEUNMODIFIED) {
 			fitImage();
-			fitImageMode = IMAGEUNMODIFIED;
+			// Not sure why this was here
+			// fitImageMode = IMAGEUNMODIFIED;
 		}
+	}
+
+	@Override
+	protected void onDraw(Canvas canvas) {
+		// Log.d(TAG, this.getClass().getSimpleName() + ": onDraw:");
+		// Log.d(TAG,
+		// "  mLocation="
+		// + (mLocation == null ? "null" : "non-null")
+		// + "  mMapCalibration="
+		// + (mMapCalibration == null ? "null" : "non-null")
+		// + "  transform="
+		// + (mMapCalibration != null
+		// && mMapCalibration.getTransform() != null ? "non-null"
+		// : "null"));
+		super.onDraw(canvas);
+		if (mLocation == null || mMapCalibration == null
+				|| mMapCalibration.getTransform() == null) {
+			Log.d(TAG, "  Bad location or calibration");
+			return;
+		}
+
+		// Draw location cursor
+		double lon = mLocation.getLongitude();
+		double lat = mLocation.getLatitude();
+		int[] locationVals = mMapCalibration.inverse(lon, lat);
+		if (locationVals == null) {
+			Log.d(TAG, this.getClass().getSimpleName()
+					+ "  locationVals  is null");
+			return;
+		}
+		// Log.d(TAG, String.format("  locationVals=%d %d", locationVals[0],
+		// locationVals[1]));
+		Matrix matrix = mMatrix;
+		float[] values = new float[9];
+		matrix.getValues(values);
+		// Log.d(TAG, String.format("    %10.3f %10.3f %10.3f", values[0],
+		// values[1], values[2]));
+		// Log.d(TAG, String.format("    %10.3f %10.3f %10.3f", values[3],
+		// values[4], values[5]));
+		// Log.d(TAG, String.format("    %10.3f %10.3f %10.3f", values[6],
+		// values[7], values[8]));
+		float x0 = values[2];
+		float y0 = values[5];
+		float scalex = values[0];
+		float scaley = values[4];
+		int x = locationVals[0];
+		int y = locationVals[1];
+		float x1 = x0 + x * scalex;
+		float y1 = y0 + y * scaley;
+		Log.d(TAG, String.format("  drawing %.6f %.6f -> %d %d at %.3f %.3f",
+				lon, lat, x, y, x1, y1));
+		canvas.drawBitmap(mGPSCursor, x1, y1, null);
 	}
 
 	/**
@@ -173,21 +253,21 @@ public class MapImageView extends ImageView implements IConstants {
 	 * value of fitImageMode. super.onMeasure must have been called first.
 	 */
 	public void fitImage() {
-		Log.d(TAG, this.getClass().getSimpleName()
-				+ ": fitImage: fitImageMode=" + fitImageMode);
+		// Log.d(TAG, this.getClass().getSimpleName()
+		// + ": fitImage: fitImageMode=" + fitImageMode);
 		Drawable drawable = getDrawable();
 		if (drawable == null) {
 			return;
 		}
-		matrix.reset();
+		mMatrix.reset();
 		int dWidth = drawable.getIntrinsicWidth();
 		int dHeight = drawable.getIntrinsicHeight();
 		// These should have been defined, but getWidth and getHeight may not
 		// have been
 		int vWidth = getMeasuredWidth();
 		int vHeight = getMeasuredHeight();
-		Log.d(TAG, this.getClass().getSimpleName() + ": fitImage: drawable: "
-				+ dWidth + "," + dHeight + " view: " + vWidth + "," + vHeight);
+		// Log.d(TAG, this.getClass().getSimpleName() + ": fitImage: drawable: "
+		// + dWidth + "," + dHeight + " view: " + vWidth + "," + vHeight);
 		if (vHeight == 0 || vWidth == 0) {
 			return;
 		}
@@ -201,10 +281,10 @@ public class MapImageView extends ImageView implements IConstants {
 				scale = (float) vHeight / (float) dHeight;
 			}
 
-			savedMatrix.set(matrix);
-			matrix.set(savedMatrix);
-			matrix.postScale(scale, scale, 0, 0);
-			setImageMatrix(matrix);
+			mSavedMatrix.set(mMatrix);
+			mMatrix.set(mSavedMatrix);
+			mMatrix.postScale(scale, scale, 0, 0);
+			setImageMatrix(mMatrix);
 		}
 
 		// Center the image
@@ -215,46 +295,21 @@ public class MapImageView extends ImageView implements IConstants {
 			redundantYSpace /= (float) 2;
 			redundantXSpace /= (float) 2;
 
-			savedMatrix.set(matrix);
-			matrix.set(savedMatrix);
-			matrix.postTranslate(redundantXSpace, redundantYSpace);
-			setImageMatrix(matrix);
+			mSavedMatrix.set(mMatrix);
+			mMatrix.set(mSavedMatrix);
+			mMatrix.postTranslate(redundantXSpace, redundantYSpace);
+			setImageMatrix(mMatrix);
 		}
 	}
 
-	// // TODO This doesn't seem to work as the width and height may not have
-	// been
-	// // determined when it is logical to call it
-	// public void setImage(Bitmap bm, int displayWidth, int displayHeight) {
-	// super.setImageBitmap(bm);
-	//
-	// // Fit to screen.
-	// float scale;
-	// if ((displayHeight / bm.getHeight()) >= (displayWidth / bm.getWidth())) {
-	// scale = (float) displayWidth / (float) bm.getWidth();
-	// } else {
-	// scale = (float) displayHeight / (float) bm.getHeight();
-	// }
-	//
-	// savedMatrix.set(matrix);
-	// matrix.set(savedMatrix);
-	// matrix.postScale(scale, scale, mid.x, mid.y);
-	// setImageMatrix(matrix);
-	//
-	// // Center the image
-	// float redundantYSpace = (float) displayHeight
-	// - (scale * (float) bm.getHeight());
-	// float redundantXSpace = (float) displayWidth
-	// - (scale * (float) bm.getWidth());
-	//
-	// redundantYSpace /= (float) 2;
-	// redundantXSpace /= (float) 2;
-	//
-	// savedMatrix.set(matrix);
-	// matrix.set(savedMatrix);
-	// matrix.postTranslate(redundantXSpace, redundantYSpace);
-	// setImageMatrix(matrix);
-	// }
+	/**
+	 * Resets the view to the starting value.
+	 */
+	public void reset() {
+		mMatrix.reset();
+		fitImage();
+		forceLayout();
+	}
 
 	/** Determines the space between the first two fingers */
 	private float spacing(MotionEvent event) {
@@ -288,7 +343,7 @@ public class MapImageView extends ImageView implements IConstants {
 		if (actionCode == MotionEvent.ACTION_POINTER_DOWN
 				|| actionCode == MotionEvent.ACTION_POINTER_UP) {
 			sb.append("(pid ").append(
-					action >> MotionEvent.ACTION_POINTER_ID_SHIFT);
+					action >> MotionEvent.ACTION_POINTER_INDEX_SHIFT);
 			sb.append(")");
 		}
 		sb.append("[");
@@ -324,6 +379,34 @@ public class MapImageView extends ImageView implements IConstants {
 	 */
 	public void setFitImageMode(int fitImageMode) {
 		this.fitImageMode = fitImageMode;
+	}
+
+	public void setLocation(Location location, MapCalibration mapCalibration) {
+		this.mLocation = location;
+		this.mMapCalibration = mapCalibration;
+	}
+
+	public void setMapCalibration(MapCalibration mapCalibration) {
+		this.mMapCalibration = mapCalibration;
+	}
+
+	/**
+	 * Gesture detector. Based on an example at<br>
+	 * <br>
+	 * http://www.codeshogun.com/blog/2009
+	 * /04/16/how-to-implement-swipe-action-in-android/
+	 */
+	class MapImageGestureListener extends SimpleOnGestureListener {
+		@Override
+		public boolean onDoubleTapEvent(MotionEvent ev) {
+			// We only want ACTION_UP actions
+			int action = ev.getAction() & MotionEvent.ACTION_MASK;
+			if (action != MotionEvent.ACTION_UP) {
+				return false;
+			}
+			reset();
+			return true;
+		}
 	}
 
 }

@@ -40,6 +40,7 @@ public interface IConstants {
 	public static final String SD_CARD_MAP_IMAGE_DIRECTORY = "MapImage";
 
 	public static final String PREF_FILENAME = "fileName";
+	public static final String PREF_USE_LOCATION = "useLocation";
 
 	// Messages
 	/** Request code for displaying aa image. */

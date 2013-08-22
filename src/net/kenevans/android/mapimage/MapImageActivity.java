@@ -1,7 +1,6 @@
 package net.kenevans.android.mapimage;
 
 import java.io.File;
-import java.io.IOException;
 
 import android.app.Activity;
 import android.content.Context;
@@ -12,6 +11,7 @@ import android.graphics.BitmapFactory;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.location.LocationProvider;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
@@ -47,23 +47,6 @@ public class MapImageActivity extends Activity implements IConstants,
 
 		// Create a directory on the SD card if not already there
 		setUserDirectory();
-
-		// Get the location manager
-		mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-		// Define the criteria how to select the location provider -> use
-		// default
-		// Criteria criteria = new Criteria();
-		// provider = mLocationManager.getBestProvider(criteria, false);
-		mProvider = LocationManager.GPS_PROVIDER;
-
-		// Location location = mLocationManager.getLastKnownLocation(mProvider);
-		// if (location != null) {
-		// Toast.makeText(
-		// this,
-		// "Initial Location " + location.getLatitude() + ","
-		// + location.getLatitude(), Toast.LENGTH_SHORT)
-		// .show();
-		// }
 	}
 
 	@Override
@@ -85,9 +68,9 @@ public class MapImageActivity extends Activity implements IConstants,
 				Utils.warnMsg(this, "Location is already started");
 				return true;
 			}
-			notifyLocationDisabled();
 			mUseLocation = true;
 			enableLocation();
+			notifyLocationDisabled();
 			return true;
 		case R.id.stop_location:
 			if (!mUseLocation) {
@@ -96,6 +79,8 @@ public class MapImageActivity extends Activity implements IConstants,
 			}
 			disableLocation();
 			mUseLocation = false;
+			mImageView.setLocation(null, null);
+			mImageView.invalidate();
 			return true;
 		case R.id.test:
 			setNewImage();
@@ -110,16 +95,19 @@ public class MapImageActivity extends Activity implements IConstants,
 	@Override
 	protected void onResume() {
 		super.onResume();
-		Log.d(TAG, this.getClass().getSimpleName() + ": onResume:");
+		Log.d(TAG, this.getClass().getSimpleName() + ": onResume: mUseLocation=" + mUseLocation);
 
 		// Restore the state
 		SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+		mUseLocation = prefs.getBoolean(PREF_USE_LOCATION, false);
 		String fileName = prefs.getString(PREF_FILENAME, null);
 		Log.d(TAG, "  fileName=" + fileName);
 		if (fileName == null) {
 			mImageView.setImageResource(R.drawable.test);
+			mImageView.setMapCalibration(null);
 		} else {
 			setNewImage(fileName);
+			mImageView.setMapCalibration(null);
 		}
 		// mImageView.setFitImageMode(MapImageView.IMAGEFITTED
 		// | MapImageView.IMAGECENTERED);
@@ -130,8 +118,12 @@ public class MapImageActivity extends Activity implements IConstants,
 
 	@Override
 	protected void onPause() {
-		Log.d(TAG, this.getClass().getSimpleName() + ": onPause:");
+		Log.d(TAG, this.getClass().getSimpleName() + ": onPause: mUseLocation=" + mUseLocation);
 		super.onPause();
+		SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
+				.edit();
+		editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
+		editor.commit();
 		disableLocation();
 	}
 
@@ -199,12 +191,19 @@ public class MapImageActivity extends Activity implements IConstants,
 	 * Resets to using the default image.
 	 */
 	private void reset() {
-		SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE).edit();
-		editor.putString(PREF_FILENAME, null);
-		editor.commit();
-		mImageView.setImageResource(R.drawable.test);
-		// mImageView.setFitImageMode(MapImageView.IMAGEFITTED
-		// | MapImageView.IMAGECENTERED);
+		// // DEBUG
+		// SharedPreferences.Editor editor =
+		// getPreferences(MODE_PRIVATE).edit();
+		// editor.putString(PREF_FILENAME, null);
+		// editor.commit();
+		// mImageView.setImageResource(R.drawable.test);
+		// mImageView.setMapCalibration(null);
+		// // mImageView.setFitImageMode(MapImageView.IMAGEFITTED
+		// // | MapImageView.IMAGECENTERED);
+
+		if (mImageView != null) {
+			mImageView.reset();
+		}
 	}
 
 	@Override
@@ -261,6 +260,7 @@ public class MapImageActivity extends Activity implements IConstants,
 					.edit();
 			editor.putString(PREF_FILENAME, file.getPath());
 			editor.commit();
+			mImageView.setMapCalibration(null);
 			mImageView.setImageBitmap(bitmap);
 			mImageView.fitImage();
 			// mImageView.setFitImageMode(MapImageView.IMAGEFITTED
@@ -284,13 +284,15 @@ public class MapImageActivity extends Activity implements IConstants,
 				try {
 					mMapCalibration.read(calibFile);
 				} catch (Exception ex) {
-					// Have to use Exception because NUmberFormatException might
+					// Have to use Exception because NumberFormatException might
 					// be wrapped in an InvocationTargetException
 					Utils.excMsg(this, "Cannot read calibration file", ex);
 					mMapCalibration = null;
 				}
 			}
 		}
+		mImageView.setMapCalibration(mMapCalibration);
+
 	}
 
 	/**
@@ -316,6 +318,7 @@ public class MapImageActivity extends Activity implements IConstants,
 					.edit();
 			editor.putString(PREF_FILENAME, file.getPath());
 			editor.commit();
+			mImageView.setMapCalibration(null);
 			mImageView.setImageBitmap(bitmap);
 			mImageView.fitImage();
 			// mImageView.setFitImageMode(MapImageView.IMAGEFITTED
@@ -336,6 +339,13 @@ public class MapImageActivity extends Activity implements IConstants,
 		if (!mUseLocation) {
 			return;
 		}
+		// Get the location manager
+		mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+		// Define the criteria how to select the location provider -> use
+		// default
+		// Criteria criteria = new Criteria();
+		// provider = mLocationManager.getBestProvider(criteria, false);
+		mProvider = LocationManager.GPS_PROVIDER;
 		if (mProvider == null || mLocationManager == null
 				|| !mLocationManager.isProviderEnabled(mProvider)) {
 			return;
@@ -348,37 +358,51 @@ public class MapImageActivity extends Activity implements IConstants,
 			return;
 		}
 		mLocationManager.removeUpdates(this);
+		mLocationManager = null;
+		mProvider = null;
 	}
 
 	// LocationListener
 
 	@Override
 	public void onLocationChanged(Location location) {
-		Log.d(TAG, this.getClass().getSimpleName() + ": onLocationChanged: "
-				+ location.getLongitude() + ", " + location.getLatitude());
+		// Log.d(TAG, this.getClass().getSimpleName() + ": onLocationChanged: "
+		// + location.getLongitude() + ", " + location.getLatitude());
+
+		// DEBUG
 		Toast.makeText(
 				this,
 				String.format("Location %.6f %.6f", location.getLongitude(),
 						location.getLatitude()), Toast.LENGTH_SHORT).show();
+
+		if (mMapCalibration.getTransform() != null) {
+			mImageView.setLocation(location, mMapCalibration);
+			mImageView.invalidate();
+		} else {
+			Log.d(TAG, this.getClass().getSimpleName()
+					+ ": onLocationChanged: transform is null");
+		}
 	}
 
 	@Override
 	public void onStatusChanged(String provider, int status, Bundle extras) {
-		// TODO Auto-generated method stub
-
+		if (status == LocationProvider.AVAILABLE) {
+		} else {
+			mImageView.setLocation(null, mMapCalibration);
+			mImageView.invalidate();
+		}
 	}
 
 	@Override
 	public void onProviderEnabled(String provider) {
-		// TODO Auto-generated method stub
-
+		// Do nothing
 	}
 
 	@Override
 	public void onProviderDisabled(String provider) {
 		Log.d(TAG, this.getClass().getSimpleName() + ": onProviderDisabled");
-		Toast.makeText(this, "Disabled provider " + provider,
-				Toast.LENGTH_SHORT).show();
+		mImageView.setLocation(null, mMapCalibration);
+		mImageView.invalidate();
 	}
 
 }
