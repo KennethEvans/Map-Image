@@ -370,6 +370,10 @@ public class MapCalibration implements IConstants {
 		return transform;
 	}
 
+	public List<MapData> getDataList() {
+		return dataList;
+	}
+
 	public class MapTransform {
 		private double a;
 		private double b;

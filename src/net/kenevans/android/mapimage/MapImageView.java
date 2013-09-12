@@ -191,8 +191,6 @@ public class MapImageView extends ImageView implements IConstants {
 		// Fit the image if specified
 		if (fitImageMode != IMAGEUNMODIFIED) {
 			fitImage();
-			// Not sure why this was here
-			// fitImageMode = IMAGEUNMODIFIED;
 		}
 	}
 
@@ -214,7 +212,7 @@ public class MapImageView extends ImageView implements IConstants {
 			Log.d(TAG, "  Bad location or calibration");
 			return;
 		}
-
+		
 		// Draw location cursor
 		double lon = mLocation.getLongitude();
 		double lat = mLocation.getLatitude();
@@ -392,6 +390,10 @@ public class MapImageView extends ImageView implements IConstants {
 
 	public void setMapCalibration(MapCalibration mapCalibration) {
 		this.mMapCalibration = mapCalibration;
+	}
+
+	public MapCalibration getMapCalibration() {
+		return mMapCalibration;
 	}
 
 	/**

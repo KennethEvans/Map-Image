@@ -1,6 +1,10 @@
 package net.kenevans.android.mapimage;
 
 import java.io.File;
+import java.util.List;
+
+import net.kenevans.android.mapimage.MapCalibration.MapData;
+import net.kenevans.android.mapimage.MapCalibration.MapTransform;
 
 import android.app.Activity;
 import android.content.Context;
@@ -8,6 +12,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -95,9 +100,7 @@ public class MapImageActivity extends Activity implements IConstants,
 			}
 			return true;
 		case R.id.image_info:
-			// String msg = "";
-			// msg += mImageView.get
-			// Utils.infoMsg(this, msg);
+			info();
 			return true;
 		case R.id.reset:
 			reset();
@@ -210,6 +213,82 @@ public class MapImageActivity extends Activity implements IConstants,
 	private void reset() {
 		if (mImageView != null) {
 			mImageView.reset();
+		}
+	}
+
+	/**
+	 * Displays info about the current configuration
+	 */
+	private void info() {
+		if (mImageView == null) {
+			return;
+		}
+		try {
+			String info = "";
+			// Filename
+			SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+			String fileName = prefs.getString(PREF_FILENAME, null);
+			if (fileName == null) {
+				info += "No file name\n";
+			} else {
+				info += fileName + "\n";
+			}
+			int dWidth = 0, dHeight = 0;
+			boolean hasDrawable = true;
+			Drawable drawable = mImageView.getDrawable();
+			if (drawable == null) {
+				hasDrawable = false;
+				info += "No drawable\n";
+			} else {
+				dWidth = mImageView.getDrawable().getIntrinsicWidth();
+				dHeight = drawable.getIntrinsicHeight();
+				info += String.format("%d x %d\n", dWidth, dHeight);
+			}
+			MapCalibration calib = mImageView.getMapCalibration();
+			if (calib == null || calib.getTransform() == null) {
+				info += "Not calibrated\n";
+			} else {
+				info += "Calibrated\n";
+				List<MapData> dataList = calib.getDataList();
+				if (dataList != null) {
+					for (MapData data : dataList) {
+						info += String.format("  %04d   %04d  %11.6f %11.6f\n",
+								data.getX(), data.getY(), +data.getLon(),
+								data.getLat());
+					}
+				}
+			}
+			if (!mUseLocation) {
+				info += "Not using location\n";
+			} else {
+				Location location = mImageView.getLocation();
+				if (location == null) {
+					info += "No location available\n";
+				} else {
+					double lon = location.getLongitude();
+					double lat = location.getLatitude();
+					int[] locationVals = calib.inverse(lon, lat);
+					info += String.format("Location %.6f, %.6f",
+							location.getLongitude(), location.getLatitude());
+					if (locationVals != null) {
+						info += String.format(" @ (%d, %d)\n", locationVals[0],
+								locationVals[1]);
+						if (hasDrawable) {
+							if (locationVals[0] < 0
+									|| locationVals[0] >= dWidth
+									|| locationVals[1] < 0
+									|| locationVals[1] >= dHeight) {
+								info += "Not within the image\n";
+							}
+						}
+					} else {
+						info += "\n";
+					}
+				}
+			}
+			Utils.infoMsg(this, info);
+		} catch (Throwable t) {
+			Utils.excMsg(this, "Error showing info", t);
 		}
 	}
 
@@ -346,10 +425,10 @@ public class MapImageActivity extends Activity implements IConstants,
 		// + location.getLongitude() + ", " + location.getLatitude());
 
 		// DEBUG
-		Toast.makeText(
-				this,
-				String.format("Location %.6f %.6f", location.getLongitude(),
-						location.getLatitude()), Toast.LENGTH_SHORT).show();
+		// Toast.makeText(
+		// this,
+		// String.format("Location %.6f %.6f", location.getLongitude(),
+		// location.getLatitude()), Toast.LENGTH_SHORT).show();
 
 		if (mMapCalibration != null && mMapCalibration.getTransform() != null) {
 			mImageView.setLocation(location, mMapCalibration);
