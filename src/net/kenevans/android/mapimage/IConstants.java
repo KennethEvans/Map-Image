@@ -28,11 +28,6 @@ public interface IConstants {
 	/** Tag to associate with log messages. */
 	public static final String TAG = "MapImage";
 
-	public static final String DEBUG_DIRNAME = "Dilbert";
-	public static final String DEBUG_FILENAME = "Dilbert-1989-04-16.png";
-	public static final String DEBUG_RAW_DIRNAME = "Test";
-	public static final String DEBUG_RAW_FILENAME = "Dilbert-1989-04-16.png";
-
 	/** Extension for calibration files */
 	public static final String CALIB_EXT = "calib";
 

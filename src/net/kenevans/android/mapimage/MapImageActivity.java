@@ -94,8 +94,10 @@ public class MapImageActivity extends Activity implements IConstants,
 				Utils.infoMsg(this, info);
 			}
 			return true;
-		case R.id.test:
-			setNewImage();
+		case R.id.image_info:
+			// String msg = "";
+			// msg += mImageView.get
+			// Utils.infoMsg(this, msg);
 			return true;
 		case R.id.reset:
 			reset();
@@ -116,8 +118,9 @@ public class MapImageActivity extends Activity implements IConstants,
 		String fileName = prefs.getString(PREF_FILENAME, null);
 		Log.d(TAG, "  fileName=" + fileName);
 		if (fileName == null) {
-			mImageView.setImageResource(R.drawable.test);
 			mImageView.setMapCalibration(null);
+			mImageView.setImageBitmap(null);
+			mImageView.fitImage();
 		} else {
 			setNewImage(fileName);
 			mImageView.setMapCalibration(null);
@@ -192,10 +195,11 @@ public class MapImageActivity extends Activity implements IConstants,
 				Log.d(TAG, context.getClass().getSimpleName()
 						+ ": getBitmap: Got " + file.getPath());
 			}
-		} catch (Exception ex) {
+		} catch (Throwable t) {
+			// Need Throwable for OutOfMemory
 			Log.d(TAG, context.getClass().getSimpleName()
-					+ ": Error reading image", ex);
-			Utils.excMsg(context, "Error reading image", ex);
+					+ ": Error reading image", t);
+			Utils.excMsg(context, "Error reading image", t);
 		}
 		return bitmap;
 	}
@@ -204,16 +208,6 @@ public class MapImageActivity extends Activity implements IConstants,
 	 * Resets to using the default image.
 	 */
 	private void reset() {
-		// // DEBUG
-		// SharedPreferences.Editor editor =
-		// getPreferences(MODE_PRIVATE).edit();
-		// editor.putString(PREF_FILENAME, null);
-		// editor.commit();
-		// mImageView.setImageResource(R.drawable.test);
-		// mImageView.setMapCalibration(null);
-		// // mImageView.setFitImageMode(MapImageView.IMAGEFITTED
-		// // | MapImageView.IMAGECENTERED);
-
 		if (mImageView != null) {
 			mImageView.reset();
 		}
@@ -266,6 +260,9 @@ public class MapImageActivity extends Activity implements IConstants,
 			Utils.errMsg(this, "File does not exist " + file.getPath());
 			return;
 		}
+		// Remove the old bitmap to allow more memory
+		mImageView.setMapCalibration(null);
+		mImageView.setImageBitmap(null);
 		Bitmap bitmap = getBitmap(this, file);
 		if (bitmap != null) {
 			// Save the value here
@@ -273,7 +270,6 @@ public class MapImageActivity extends Activity implements IConstants,
 					.edit();
 			editor.putString(PREF_FILENAME, file.getPath());
 			editor.commit();
-			mImageView.setMapCalibration(null);
 			mImageView.setImageBitmap(bitmap);
 			mImageView.fitImage();
 			// mImageView.setFitImageMode(MapImageView.IMAGEFITTED
@@ -305,39 +301,6 @@ public class MapImageActivity extends Activity implements IConstants,
 			}
 		}
 		mImageView.setMapCalibration(mMapCalibration);
-
-	}
-
-	/**
-	 * Sets a new image.
-	 */
-	private void setNewImage() {
-		if (mImageView == null) {
-			return;
-		}
-		File sdCardRoot = Environment.getExternalStorageDirectory();
-		File dir = new File(sdCardRoot, DEBUG_DIRNAME);
-		File file = new File(dir, DEBUG_FILENAME);
-		if (!file.exists()) {
-			Log.d(TAG, this.getClass().getSimpleName()
-					+ ": File does not exist " + file.getPath());
-			Utils.errMsg(this, "File does not exist " + file.getPath());
-			return;
-		}
-		Bitmap bitmap = getBitmap(this, file);
-		if (bitmap != null) {
-			// Save the value here
-			SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
-					.edit();
-			editor.putString(PREF_FILENAME, file.getPath());
-			editor.commit();
-			mImageView.setMapCalibration(null);
-			mImageView.setImageBitmap(bitmap);
-			mImageView.fitImage();
-			// mImageView.setFitImageMode(MapImageView.IMAGEFITTED
-			// | MapImageView.IMAGECENTERED);
-			mImageView.forceLayout();
-		}
 	}
 
 	private void notifyLocationDisabled() {
@@ -388,7 +351,7 @@ public class MapImageActivity extends Activity implements IConstants,
 				String.format("Location %.6f %.6f", location.getLongitude(),
 						location.getLatitude()), Toast.LENGTH_SHORT).show();
 
-		if (mMapCalibration.getTransform() != null) {
+		if (mMapCalibration != null && mMapCalibration.getTransform() != null) {
 			mImageView.setLocation(location, mMapCalibration);
 			mImageView.invalidate();
 		} else {

@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import Jama.Matrix;
+import Jama.SingularValueDecomposition;
 import android.util.Log;
 
 public class MapCalibration implements IConstants {
@@ -140,11 +142,100 @@ public class MapCalibration implements IConstants {
 	// }
 
 	/**
+	 * Calculates a, b, c, d, e, and f using singular value decomposition.
+	 */
+	protected void createTransform() {
+		transform = null;
+		if (dataList.size() < 3) {
+			// SWTUtils.errMsg("Need at least three data points for calibration.");
+			Log.d(TAG,
+					this.getClass().getSimpleName()
+							+ ".createTransform: Need at least three data points for calibration.");
+			return;
+		}
+
+		// Define the matrices
+		int nPoints2 = 2 * dataList.size();
+		Matrix aa = new Matrix(nPoints2, 6);
+		Matrix bb = new Matrix(nPoints2, 1);
+		MapData data = null;
+		int row;
+		for (int i = 0; i < dataList.size(); i++) {
+			data = dataList.get(i);
+			row = 2 * i;
+			aa.set(row, 0, data.getX());
+			aa.set(row, 1, data.getY());
+			aa.set(row, 4, 1);
+			bb.set(row, 0, data.getLon());
+			row++;
+			aa.set(row, 2, data.getX());
+			aa.set(row, 3, data.getY());
+			aa.set(row, 5, 1);
+			bb.set(row, 0, data.getLat());
+		}
+
+		// Get the singular values
+		try {
+			SingularValueDecomposition svd = new SingularValueDecomposition(aa);
+			Matrix u = svd.getU();
+			Matrix v = svd.getV();
+			Matrix wi = svd.getS();
+			for (int i = 0; i < 6; i++) {
+				wi.set(i, i, 1. / wi.get(i, i));
+			}
+			Matrix aainv = v.times(wi).times(u.transpose());
+			Matrix xx = aainv.times(bb);
+
+			// // DEBUG
+			// System.out.println("u = ");
+			// printMatrix(u);
+			// System.out.println("s = ");
+			// printMatrix(svd.getS());
+			// System.out.println("v = ");
+			// printMatrix(v);
+			// System.out.println("aa = ");
+			// printMatrix(aa);
+			// Matrix aa1 = u.times(wi).times(v.transpose());
+			// System.out.println("aa1 = ");
+			// printMatrix(aa1);
+			// System.out.println("wi = ");
+			// printMatrix(wi);
+			// System.out.println("aainv = ");
+			// printMatrix(aainv);
+			// System.out.println("xx = ");
+			// printMatrix(xx);
+			// Matrix test = aa.times(aainv);
+			// System.out.println("aa.aainv = ");
+			// printMatrix(test);
+
+			double a = xx.get(0, 0);
+			double b = xx.get(1, 0);
+			double c = xx.get(2, 0);
+			double d = xx.get(3, 0);
+			double e = xx.get(4, 0);
+			double f = xx.get(5, 0);
+			transform = new MapTransform(a, b, c, d, e, f);
+			// DEBUG
+			System.out.println(String.format(
+					"  a=%.3g b=%.3g c=%.3g d=%.3g e=%.3g f= %.3g",
+					transform.getA(), transform.getB(), transform.getC(),
+					transform.getD(), transform.getE(), transform.getF()));
+		} catch (Exception ex) {
+			// SWTUtils.excMsg("Failed to create calibration transform", ex);
+			Log.d(TAG,
+					this.getClass().getSimpleName()
+							+ ".createTransform: Failed to create calibration transform.");
+			Log.d(TAG, ex + " " + ex.getMessage());
+			transform = null;
+		}
+	}
+
+	/**
 	 * Calculates a, b, c, d, e, and f using 3 calibration points. Using more
 	 * than 3 points is over-determined. The best solution would be to use
 	 * singular value decomposition.
 	 */
-	protected void createTransform() {
+	protected void createTransform3() {
 		transform = null;
 		int x1, x2, x3, y1, y2, y3;
 		double lon1, lon2, lon3, lat1, lat2, lat3;

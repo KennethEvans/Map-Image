@@ -5,7 +5,8 @@
 	<string name="content_image">Image</string>
     <string name="current_location_item">Current Location</string>
 	<string name="hello_world">Hello World, MapImage</string>
-    <string name="image_file_list_name">Image Files</string>
+	<string name="image_info">Info</string>
+	<string name="image_file_list_name">Image Files</string>
     <string name="menu_settings">Settings</string>
     <string name="open_item">New Image</string>
     <string name="reset_item">Reset</string>
