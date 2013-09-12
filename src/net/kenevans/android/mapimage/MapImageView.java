@@ -173,7 +173,7 @@ public class MapImageView extends ImageView implements IConstants {
 		});
 
 		// Create the cursor bitmap
-		int size = 21;
+		int size = 15;
 		mGPSCursor = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
 		Paint paint = new Paint();
 		paint.setAntiAlias(true);
