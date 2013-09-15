@@ -9,11 +9,17 @@ import java.util.List;
 
 import Jama.Matrix;
 import Jama.SingularValueDecomposition;
+import android.content.Context;
 import android.util.Log;
 
 public class MapCalibration implements IConstants {
 	private List<MapData> dataList = new ArrayList<MapData>();
 	private MapTransform transform;
+	private Context context;
+
+	public MapCalibration(Context context) {
+		this.context = context;
+	}
 
 	public boolean read(File file) throws NumberFormatException, IOException {
 		MapData data = null;
@@ -24,9 +30,7 @@ public class MapCalibration implements IConstants {
 		double lon, lat;
 		in = new BufferedReader(new FileReader(file));
 		String line;
-		int lineNum = 0;
 		while ((line = in.readLine()) != null) {
-			lineNum++;
 			tokens = line.trim().split("\\s+");
 			// Skip blank lines
 			if (tokens.length == 0) {
@@ -35,15 +39,6 @@ public class MapCalibration implements IConstants {
 			// Skip lines starting with #
 			if (tokens[0].trim().startsWith("#")) {
 				continue;
-			}
-			// Must be 4 or more values, any after 4 are ignored
-			if (tokens.length < 4) {
-				// SWTUtils.errMsg("Invalid Calibration file at line " +
-				// lineNum);
-				Log.d(TAG, this.getClass().getSimpleName()
-						+ ".read: Invalid Calibration file at line " + lineNum);
-				in.close();
-				return false;
 			}
 			x = Integer.parseInt(tokens[0]);
 			y = Integer.parseInt(tokens[1]);
@@ -62,85 +57,6 @@ public class MapCalibration implements IConstants {
 		return ok;
 	}
 
-	// /**
-	// * Calculates a, b, c, d, e, and f using two calibration points.
-	// */
-	// private void createTransform1() {
-	// transform = null;
-	// int x1, x2, y1, y2;
-	// double lon1, lon2, lat1, lat2;
-	// if(dataList.size() < 2) {
-	// return;
-	// }
-	// try {
-	// x1 = dataList.get(0).getX();
-	// y1 = dataList.get(0).getY();
-	// lon1 = dataList.get(0).getLon();
-	// lat1 = dataList.get(0).getLat();
-	// x2 = dataList.get(1).getX();
-	// y2 = dataList.get(1).getY();
-	// lon2 = dataList.get(1).getLon();
-	// lat2 = dataList.get(1).getLat();
-	// double a = (lon1 - lon2) / (x1 - x2);
-	// double b = 0;
-	// double c = (lat1 - lat2) / (y1 - y2);
-	// double d = 0;
-	// double e = lon1 - a * x1;
-	// double f = lat1 - c * y1;
-	// transform = new MapTransform(a, b, c, d, e, f);
-	// } catch(Exception ex) {
-	// transform = null;
-	// }
-	// }
-
-	// /**
-	// * Calculates a, b, c, d, e, and f using two calibration points. Using two
-	// * points does not work well. It is ambiguous to rotating about the line
-	// * between the two points.
-	// */
-	// private void createTransform1() {
-	// transform = null;
-	// int x1, x2, y1, y2;
-	// double lon1, lon2, lat1, lat2;
-	// if(dataList.size() < 2) {
-	// return;
-	// }
-	// try {
-	// x1 = dataList.get(0).getX();
-	// y1 = dataList.get(0).getY();
-	// lon1 = dataList.get(0).getLon();
-	// lat1 = dataList.get(0).getLat();
-	// x2 = dataList.get(1).getX();
-	// y2 = dataList.get(1).getY();
-	// lon2 = dataList.get(1).getLon();
-	// lat2 = dataList.get(1).getLat();
-	// double a = (lon2 - lon1) / (x2 - x1);
-	// double b = 0;
-	// double c = 0;
-	// double d = (lat2 - lat1) / (y2 - y1);
-	// double e = (lon1 * x2 - lon2 * x1) / (x2 - x1);
-	// double f = (lat1 * y2 - lat2 * y1) / (y2 - y1);
-	// // Debug
-	// System.out.println(String.format(
-	// "a=%.4g b=%.4g c=%.4g d=%.4g e=%.4g f=%.4g", a, b, c, d, e, f));
-	// int xtest = 1699;
-	// int ytest = 123;
-	// double lontest = a * xtest + e;
-	// double lattest = d * ytest + f;
-	// System.out.println(String.format("x1=%d y1=%d lon1=%.6f lat1=%.6f",
-	// x1, y1, lon1, lat1));
-	// System.out.println(String.format("x2=%d y2=%d lon2=%.6f lat2=%.6f",
-	// x2, y2, lon2, lat2));
-	// System.out.println(String.format(
-	// "xtest=%d ytest=%d lontest=%.6f lattest=%.6f", xtest, ytest,
-	// lontest, lattest));
-	// transform = new MapTransform(a, b, c, d, e, f);
-	// } catch(Exception ex) {
-	// SWTUtils.excMsg("Failed to create calibration transform", ex);
-	// transform = null;
-	// }
-	// }
-
 	/**
 	 * Calculates a, b, c, d, e, and f using singular value decomposition.
 	 */
@@ -148,9 +64,8 @@ public class MapCalibration implements IConstants {
 		transform = null;
 		if (dataList.size() < 3) {
 			// SWTUtils.errMsg("Need at least three data points for calibration.");
-			Log.d(TAG,
-					this.getClass().getSimpleName()
-							+ ".createTransform: Need at least three data points for calibration.");
+			Utils.errMsg(context,
+					"Need at least three data points for calibration.");
 			return;
 		}
 
@@ -222,79 +137,7 @@ public class MapCalibration implements IConstants {
 					transform.getD(), transform.getE(), transform.getF()));
 		} catch (Exception ex) {
 			// SWTUtils.excMsg("Failed to create calibration transform", ex);
-			Log.d(TAG,
-					this.getClass().getSimpleName()
-							+ ".createTransform: Failed to create calibration transform.");
-			Log.d(TAG, ex + " " + ex.getMessage());
-			transform = null;
-		}
-	}
-
-	/**
-	 * Calculates a, b, c, d, e, and f using 3 calibration points. Using more
-	 * than 3 points is over-determined. The best solution would be to use
-	 * singular value decomposition.
-	 */
-	protected void createTransform3() {
-		transform = null;
-		int x1, x2, x3, y1, y2, y3;
-		double lon1, lon2, lon3, lat1, lat2, lat3;
-		if (dataList.size() < 3) {
-			// SWTUtils.errMsg("Need at least three data points for calibration.");
-			Log.d(TAG,
-					this.getClass().getSimpleName()
-							+ ".createTransform: Need at least three data points for calibration.");
-			return;
-		}
-		if (dataList.size() > 3) {
-			// SWTUtils.errMsg("Using first three data points for calibration.");
-			return;
-		}
-		try {
-			x1 = dataList.get(0).getX();
-			y1 = dataList.get(0).getY();
-			lon1 = dataList.get(0).getLon();
-			lat1 = dataList.get(0).getLat();
-			x2 = dataList.get(1).getX();
-			y2 = dataList.get(1).getY();
-			lon2 = dataList.get(1).getLon();
-			lat2 = dataList.get(1).getLat();
-			x3 = dataList.get(2).getX();
-			y3 = dataList.get(2).getY();
-			lon3 = dataList.get(2).getLon();
-			lat3 = dataList.get(2).getLat();
-
-			double a = ((lon2 - lon1) * y3 + (lon1 - lon3) * y2 + (lon3 - lon2)
-					* y1)
-					/ ((x2 - x1) * y3 + (x1 - x3) * y2 + (x3 - x2) * y1);
-			double b = -((lon2 - lon1) * x3 + (lon1 - lon3) * x2 + (lon3 - lon2)
-					* x1)
-					/ ((x2 - x1) * y3 + (x1 - x3) * y2 + (x3 - x2) * y1);
-			double c = ((lat2 - lat1) * y3 + (lat1 - lat3) * y2 + (lat3 - lat2)
-					* y1)
-					/ ((x2 - x1) * y3 + (x1 - x3) * y2 + (x3 - x2) * y1);
-			double d = -((lat2 - lat1) * x3 + (lat1 - lat3) * x2 + (lat3 - lat2)
-					* x1)
-					/ ((x2 - x1) * y3 + (x1 - x3) * y2 + (x3 - x2) * y1);
-			double e = ((lon1 * x2 - lon2 * x1) * y3 + (lon3 * x1 - lon1 * x3)
-					* y2 + (lon2 * x3 - lon3 * x2) * y1)
-					/ ((x2 - x1) * y3 + (x1 - x3) * y2 + (x3 - x2) * y1);
-			double f = ((lat1 * x2 - lat2 * x1) * y3 + (lat3 * x1 - lat1 * x3)
-					* y2 + (lat2 * x3 - lat3 * x2) * y1)
-					/ ((x2 - x1) * y3 + (x1 - x3) * y2 + (x3 - x2) * y1);
-			transform = new MapTransform(a, b, c, d, e, f);
-			// Log.d(TAG, this.getClass().getSimpleName() +
-			// ".createTransform:");
-			// Log.d(TAG, String.format(
-			// "  a=%.3g b=%.3g c=%.3g d=%.3g e=%.3g f= %.3g",
-			// transform.getA(), transform.getB(), transform.getC(),
-			// transform.getD(), transform.getE(), transform.getF()));
-		} catch (Exception ex) {
-			// SWTUtils.excMsg("Failed to create calibration transform", ex);
-			Log.d(TAG,
-					this.getClass().getSimpleName()
-							+ ".createTransform: Failed to create calibration transform.");
-			Log.d(TAG, ex + " " + ex.getMessage());
+			Utils.excMsg(context, "Failed to create calibration transform", ex);
 			transform = null;
 		}
 	}
@@ -330,7 +173,7 @@ public class MapCalibration implements IConstants {
 	public int[] inverse(double lon, double lat) {
 		if (transform == null) {
 			Log.d(TAG, this.getClass().getSimpleName()
-					+ ".inverse: transform is zero.");
+					+ ".inverse: transform is null.");
 			return null;
 		}
 		int[] val = new int[2];

@@ -303,7 +303,11 @@ public class MapImageActivity extends Activity implements IConstants,
 		if (requestCode == DISPLAY_IMAGE && resultCode == RESULT_OK) {
 			Bundle extras = intent.getExtras();
 			String filePath = extras.getString(OPEN_FILE_PATH);
-			setNewImage(filePath);
+			// Just set the filePath, setNewImage will be done in onResume
+			SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
+					.edit();
+			editor.putString(PREF_FILENAME, filePath);
+			editor.commit();
 		}
 	}
 
@@ -368,13 +372,13 @@ public class MapImageActivity extends Activity implements IConstants,
 							+ ".setNewImage: calibFile=" + calibFileName
 							+ (calibFile.exists() ? " exists" : " not found"));
 			if (calibFile.exists()) {
-				mMapCalibration = new MapCalibration();
+				mMapCalibration = new MapCalibration(this);
 				try {
 					mMapCalibration.read(calibFile);
 				} catch (Exception ex) {
 					// Have to use Exception because NumberFormatException might
 					// be wrapped in an InvocationTargetException
-					Utils.excMsg(this, "Cannot read calibration file", ex);
+					Utils.excMsg(this, "Error reading calibration file", ex);
 					mMapCalibration = null;
 				}
 			}
