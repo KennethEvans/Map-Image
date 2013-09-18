@@ -2,7 +2,6 @@
     <item android:id="@+id/open" android:title="@string/open_item" />
     <item android:id="@+id/start_location" android:title="@string/start_location_item" />
     <item android:id="@+id/stop_location" android:title="@string/stop_location_item" />
-    <item android:id="@+id/current_location" android:title="@string/current_location_item" />
     <item android:id="@+id/image_info" android:title="@string/image_info" />
     <item android:id="@+id/reset" android:title="@string/reset_item" />
 </menu>

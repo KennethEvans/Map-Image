@@ -36,6 +36,7 @@ public interface IConstants {
 
 	public static final String PREF_FILENAME = "fileName";
 	public static final String PREF_USE_LOCATION = "useLocation";
+	public static final String PREF_IMAGE_DIRECTORY = "imageDirectory";
 
 	// Messages
 	/** Request code for displaying aa image. */

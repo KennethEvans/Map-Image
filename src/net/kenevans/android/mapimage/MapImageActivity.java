@@ -2,10 +2,9 @@ package net.kenevans.android.mapimage;
 
 import java.io.File;
 import java.util.List;
+import java.util.Locale;
 
 import net.kenevans.android.mapimage.MapCalibration.MapData;
-import net.kenevans.android.mapimage.MapCalibration.MapTransform;
-
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -24,7 +23,6 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.WindowManager;
-import android.widget.Toast;
 
 public class MapImageActivity extends Activity implements IConstants,
 		LocationListener {
@@ -57,7 +55,7 @@ public class MapImageActivity extends Activity implements IConstants,
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
-		getMenuInflater().inflate(R.menu.activity_map_image, menu);
+		getMenuInflater().inflate(R.menu.main_menu, menu);
 		return true;
 	}
 
@@ -87,18 +85,18 @@ public class MapImageActivity extends Activity implements IConstants,
 			mImageView.setLocation(null, null);
 			mImageView.invalidate();
 			return true;
-		case R.id.current_location:
-			Location location = mImageView.getLocation();
-			if (location == null) {
-				Utils.infoMsg(this, "Current location is not available");
-			} else {
-				double lon = location.getLongitude();
-				double lat = location.getLatitude();
-				String info = String.format("longitude=%.6f latitude=%.6f",
-						lon, lat);
-				Utils.infoMsg(this, info);
-			}
-			return true;
+			// case R.id.current_location:
+			// Location location = mImageView.getLocation();
+			// if (location == null) {
+			// Utils.infoMsg(this, "Current location is not available");
+			// } else {
+			// double lon = location.getLongitude();
+			// double lat = location.getLatitude();
+			// String info = String.format(Locale.US,
+			// "longitude=%.6f latitude=%.6f", lon, lat);
+			// Utils.infoMsg(this, info);
+			// }
+			// return true;
 		case R.id.image_info:
 			info();
 			return true;
