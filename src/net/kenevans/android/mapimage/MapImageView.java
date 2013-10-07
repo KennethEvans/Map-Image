@@ -266,7 +266,7 @@ public class MapImageView extends ImageView implements IConstants {
 		int vHeight = getMeasuredHeight();
 		// Log.d(TAG, this.getClass().getSimpleName() + ": fitImage: drawable: "
 		// + dWidth + "," + dHeight + " view: " + vWidth + "," + vHeight);
-		if (vHeight == 0 || vWidth == 0) {
+		if (vHeight == 0 || vWidth == 0 || dWidth == 0 || dHeight == 0) {
 			return;
 		}
 
