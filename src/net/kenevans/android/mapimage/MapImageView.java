@@ -209,10 +209,10 @@ public class MapImageView extends ImageView implements IConstants {
 		super.onDraw(canvas);
 		if (mLocation == null || mMapCalibration == null
 				|| mMapCalibration.getTransform() == null) {
-			Log.d(TAG, "  Bad location or calibration");
+			// Log.d(TAG, "  Bad location or calibration");
 			return;
 		}
-		
+
 		// Draw location cursor
 		double lon = mLocation.getLongitude();
 		double lat = mLocation.getLatitude();
@@ -241,8 +241,8 @@ public class MapImageView extends ImageView implements IConstants {
 		int y = locationVals[1];
 		float x1 = x0 + x * scalex;
 		float y1 = y0 + y * scaley;
-		Log.d(TAG, String.format("  drawing %.6f %.6f -> %d %d at %.3f %.3f",
-				lon, lat, x, y, x1, y1));
+		// Log.d(TAG, String.format("  drawing %.6f %.6f -> %d %d at %.3f %.3f",
+		// lon, lat, x, y, x1, y1));
 		canvas.drawBitmap(mGPSCursor, x1, y1, null);
 	}
 

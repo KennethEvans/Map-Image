@@ -31,12 +31,19 @@ public interface IConstants {
 	/** Extension for calibration files */
 	public static final String CALIB_EXT = "calib";
 
+	/** Minimum update interval array. Values are in ms. */
+	public static long[] LOCATION_UPDATE_TIMES = { 0, 1000, 60000 };
+
+	/** Minimum update distance array Values are in m. */
+	public static float[] LOCATION_UPDATE_DISTANCES = { 0f, .5f, 10f };
+
 	/** Directory on the SD card where strips are saved */
 	public static final String SD_CARD_MAP_IMAGE_DIRECTORY = "MapImage";
 
 	public static final String PREF_FILENAME = "fileName";
 	public static final String PREF_USE_LOCATION = "useLocation";
 	public static final String PREF_IMAGE_DIRECTORY = "imageDirectory";
+	public static final String PREF_UPDATE_INTERVAL = "updateInterval";
 
 	// Messages
 	/** Request code for displaying aa image. */

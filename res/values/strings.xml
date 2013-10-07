@@ -14,6 +14,10 @@
     <string name="start_location_item">Start Location</string>
     <string name="stop_location_item">Stop Location</string>
     <string name="test_item">Test</string>
+    <string name="update_slow">Slow</string>
+    <string name="update_fast">Fast</string>
+    <string name="update_fastest">Fastest</string>
+    <string name="update_title">Set Update Interval</string>
     
 	<!-- Utils -->
 	<string name="error">Error</string>

@@ -2,11 +2,12 @@ package net.kenevans.android.mapimage;
 
 import java.io.File;
 import java.util.List;
-import java.util.Locale;
 
 import net.kenevans.android.mapimage.MapCalibration.MapData;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
@@ -32,11 +33,18 @@ public class MapImageActivity extends Activity implements IConstants,
 	private String mProvider;
 	private boolean mUseLocation = false;
 	private MapCalibration mMapCalibration;
+	private CharSequence[] mUpdateIntervals;
+	private int mUpdateInterval = 0;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		Log.d(TAG, this.getClass().getSimpleName() + ": onCreate");
 		super.onCreate(savedInstanceState);
+
+		// Create update intervals here so getText is available
+		mUpdateIntervals = new CharSequence[] {
+				getText(R.string.update_fastest),
+				getText(R.string.update_fast), getText(R.string.update_slow), };
 
 		// // Remove title bar (Call before setContentView)
 		// this.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -97,6 +105,9 @@ public class MapImageActivity extends Activity implements IConstants,
 			// Utils.infoMsg(this, info);
 			// }
 			// return true;
+		case R.id.set_update_interval:
+			setUpdateInterval();
+			return true;
 		case R.id.image_info:
 			info();
 			return true;
@@ -111,11 +122,13 @@ public class MapImageActivity extends Activity implements IConstants,
 	protected void onResume() {
 		super.onResume();
 		Log.d(TAG, this.getClass().getSimpleName()
-				+ ": onResume: mUseLocation=" + mUseLocation);
+				+ ": onResume: mUseLocation=" + mUseLocation
+				+ " mUpdateInterval=" + mUpdateInterval);
 
 		// Restore the state
 		SharedPreferences prefs = getPreferences(MODE_PRIVATE);
 		mUseLocation = prefs.getBoolean(PREF_USE_LOCATION, false);
+		mUpdateInterval = prefs.getInt(PREF_UPDATE_INTERVAL, 0);
 		String fileName = prefs.getString(PREF_FILENAME, null);
 		Log.d(TAG, "  fileName=" + fileName);
 		if (fileName == null) {
@@ -136,7 +149,7 @@ public class MapImageActivity extends Activity implements IConstants,
 	@Override
 	protected void onPause() {
 		Log.d(TAG, this.getClass().getSimpleName() + ": onPause: mUseLocation="
-				+ mUseLocation);
+				+ mUseLocation + " mUpdateInterval=" + mUpdateInterval);
 		super.onPause();
 		SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE).edit();
 		editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
@@ -265,9 +278,11 @@ public class MapImageActivity extends Activity implements IConstants,
 				} else {
 					double lon = location.getLongitude();
 					double lat = location.getLatitude();
+					float accuracy = location.getAccuracy();
 					int[] locationVals = calib.inverse(lon, lat);
-					info += String.format("Location %.6f, %.6f",
-							location.getLongitude(), location.getLatitude());
+					info += String.format("Location %.6f, %.6f +/- %.2f m",
+							location.getLongitude(), location.getLatitude(),
+							accuracy);
 					if (locationVals != null) {
 						info += String.format(" @ (%d, %d)\n", locationVals[0],
 								locationVals[1]);
@@ -310,6 +325,40 @@ public class MapImageActivity extends Activity implements IConstants,
 	}
 
 	/**
+	 * Bring up a dialog to change the sort order.
+	 */
+	private void setUpdateInterval() {
+		final CharSequence[] items = new CharSequence[mUpdateIntervals.length];
+		for (int i = 0; i < mUpdateIntervals.length; i++) {
+			items[i] = mUpdateIntervals[i];
+		}
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+		builder.setTitle(getText(R.string.update_title));
+		builder.setSingleChoiceItems(items, mUpdateInterval,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int item) {
+						dialog.dismiss();
+						if (item < 0 || item >= mUpdateIntervals.length) {
+							Utils.errMsg(MapImageActivity.this,
+									"Invalid update interval");
+							mUpdateInterval = 0;
+						} else {
+							mUpdateInterval = item;
+						}
+						SharedPreferences.Editor editor = getPreferences(
+								MODE_PRIVATE).edit();
+						editor.putInt(PREF_UPDATE_INTERVAL, mUpdateInterval);
+						editor.commit();
+						// Reset the location
+						disableLocation();
+						enableLocation();
+					}
+				});
+		AlertDialog alert = builder.create();
+		alert.show();
+	}
+
+	/**
 	 * Brings up a list of files to open.
 	 */
 	private void selectFile() {
@@ -341,8 +390,9 @@ public class MapImageActivity extends Activity implements IConstants,
 			Utils.errMsg(this, "File does not exist " + file.getPath());
 			return;
 		}
-		// Remove the old bitmap to allow more memory
+		mMapCalibration = null;
 		mImageView.setMapCalibration(null);
+		// Remove the old bitmap to allow more memory
 		mImageView.setImageBitmap(null);
 		Bitmap bitmap = getBitmap(this, file);
 		if (bitmap != null) {
@@ -407,7 +457,19 @@ public class MapImageActivity extends Activity implements IConstants,
 				|| !mLocationManager.isProviderEnabled(mProvider)) {
 			return;
 		}
-		mLocationManager.requestLocationUpdates(mProvider, 400l, 1f, this);
+		// Get the last known location and set it
+		Location lastLocation = mLocationManager
+				.getLastKnownLocation(mProvider);
+		onLocationChanged(lastLocation);
+		// Check index is in range
+		if (mUpdateInterval >= LOCATION_UPDATE_TIMES.length
+				|| mUpdateInterval < 0) {
+			mUpdateInterval = 0;
+		}
+		// Request updates
+		mLocationManager.requestLocationUpdates(mProvider,
+				LOCATION_UPDATE_TIMES[mUpdateInterval],
+				LOCATION_UPDATE_DISTANCES[mUpdateInterval], this);
 	}
 
 	private void disableLocation() {
@@ -431,7 +493,6 @@ public class MapImageActivity extends Activity implements IConstants,
 		// this,
 		// String.format("Location %.6f %.6f", location.getLongitude(),
 		// location.getLatitude()), Toast.LENGTH_SHORT).show();
-
 		if (mMapCalibration != null && mMapCalibration.getTransform() != null) {
 			mImageView.setLocation(location, mMapCalibration);
 			mImageView.invalidate();
@@ -443,8 +504,12 @@ public class MapImageActivity extends Activity implements IConstants,
 
 	@Override
 	public void onStatusChanged(String provider, int status, Bundle extras) {
-		if (status == LocationProvider.AVAILABLE) {
-		} else {
+		// Log.d(TAG, this.getClass().getSimpleName() + ": onStatusChanged: "
+		// + "enabled=" + mLocationManager.isProviderEnabled(provider)
+		// + " status=" + status + " (AVAILABLE="
+		// + LocationProvider.AVAILABLE + ")");
+
+		if (status == LocationProvider.OUT_OF_SERVICE) {
 			mImageView.setLocation(null, mMapCalibration);
 			mImageView.invalidate();
 		}
@@ -452,12 +517,22 @@ public class MapImageActivity extends Activity implements IConstants,
 
 	@Override
 	public void onProviderEnabled(String provider) {
-		// Do nothing
+		// Log.d(TAG, this.getClass().getSimpleName() +
+		// ": onProviderEnabled: ");
+
+		// Get the last known location and set it
+		if (mProvider != null && mLocationManager != null
+				&& mLocationManager.isProviderEnabled(mProvider)) {
+			Location lastLocation = mLocationManager
+					.getLastKnownLocation(mProvider);
+			onLocationChanged(lastLocation);
+		}
 	}
 
 	@Override
 	public void onProviderDisabled(String provider) {
-		Log.d(TAG, this.getClass().getSimpleName() + ": onProviderDisabled");
+		// Log.d(TAG, this.getClass().getSimpleName() + ": onProviderDisabled");
+
 		mImageView.setLocation(null, mMapCalibration);
 		mImageView.invalidate();
 	}
