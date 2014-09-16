@@ -165,6 +165,7 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
 	 * Resets the file list.
 	 */
 	private void reset() {
+		// TODO Fix this to only use USE_ARRAY_LIST_ADAPTER.  Get rid of fileList.
 		// Get the available image files
 		try {
 			// Clear the current list
