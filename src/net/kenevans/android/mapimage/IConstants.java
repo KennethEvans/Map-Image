@@ -46,7 +46,7 @@ public interface IConstants {
 	public static final String PREF_UPDATE_INTERVAL = "updateInterval";
 
 	// Messages
-	/** Request code for displaying aa image. */
+	/** Request code for displaying an image. */
 	public static final int DISPLAY_IMAGE = 0;
 	/** Result code for DISPLAY_MESSAGE indicating the previous message. */
 	public static final String OPEN_FILE_PATH = "OpenFileName";
