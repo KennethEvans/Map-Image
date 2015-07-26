@@ -37,6 +37,9 @@ public interface IConstants {
 	/** Minimum update distance array Values are in m. */
 	public static float[] LOCATION_UPDATE_DISTANCES = { 0f, .5f, 10f };
 
+	/** Minimum Dpi for zooming.  Default is 160. */
+	public static int MIN_DPI = 20;
+
 	/** Directory on the SD card where strips are saved */
 	public static final String SD_CARD_MAP_IMAGE_DIRECTORY = "MapImage";
 
