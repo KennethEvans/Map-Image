@@ -21,10 +21,6 @@
 
 package net.kenevans.android.mapimage;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -50,281 +46,275 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 public class ImageFileListActivity extends ListActivity implements IConstants {
-	private static final boolean USE_ARRAY_LIST_ADAPTER = true;
-	private static File[] mFiles;
-	private List<String> mFileNameList = new ArrayList<String>();
+    private static File[] mFiles;
+    private List<String> mFileNameList = new ArrayList<String>();
 
-	@Override
-	public void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
-		// Set result CANCELED in case the user backs out
-		setResult(Activity.RESULT_CANCELED);
+        // Set result CANCELED in case the user backs out
+        setResult(Activity.RESULT_CANCELED);
 
-		// Set the file list
-		reset();
-	}
+        // Set the file list
+        reset();
+    }
 
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-		// Inflate the menu; this adds items to the action bar if it is present.
-		getMenuInflater().inflate(R.menu.image_file_menu, menu);
-		return true;
-	}
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.image_file_menu, menu);
+        return true;
+    }
 
-	@Override
-	public boolean onOptionsItemSelected(MenuItem item) {
-		int id = item.getItemId();
-		switch (id) {
-		case R.id.set_image_directory:
-			setImageDirectory();
-			return true;
-		}
-		return false;
-	}
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        switch (id) {
+            case R.id.set_image_directory:
+                setImageDirectory();
+                return true;
+        }
+        return false;
+    }
 
-	/**
-	 * Gets the current image directory
-	 * 
-	 * @return
-	 */
-	private File getImageDirectory() {
-		SharedPreferences prefs = getPreferences(MODE_PRIVATE);
-		String imageDirName = prefs.getString(PREF_IMAGE_DIRECTORY, null);
-		File imageDir = null;
-		if (imageDirName != null) {
-			imageDir = new File(imageDirName);
-		} else {
-			File sdCardRoot = Environment.getExternalStorageDirectory();
-			if (sdCardRoot != null) {
-				imageDir = new File(sdCardRoot, SD_CARD_MAP_IMAGE_DIRECTORY);
-				// Change the stored value (even if it is null)
-				SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
-						.edit();
-				editor.putString(PREF_IMAGE_DIRECTORY, imageDir.getPath());
-				editor.commit();
-			}
-		}
-		if (imageDir == null) {
-			Utils.errMsg(this, "Image directory is null");
-			return null;
-		}
-		if (!imageDir.exists()) {
-			Utils.errMsg(this, "Cannot find directory: " + imageDir);
-			return null;
-		}
-		return imageDir;
-	}
+    /**
+     * Gets the current image directory
+     *
+     * @return
+     */
+    private File getImageDirectory() {
+        SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        String imageDirName = prefs.getString(PREF_IMAGE_DIRECTORY, null);
+        File imageDir = null;
+        if (imageDirName != null) {
+            imageDir = new File(imageDirName);
+        } else {
+            File sdCardRoot = Environment.getExternalStorageDirectory();
+            if (sdCardRoot != null) {
+                imageDir = new File(sdCardRoot, SD_CARD_MAP_IMAGE_DIRECTORY);
+                // Change the stored value (even if it is null)
+                SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
+                        .edit();
+                editor.putString(PREF_IMAGE_DIRECTORY, imageDir.getPath());
+                editor.commit();
+            }
+        }
+        if (imageDir == null) {
+            Utils.errMsg(this, "Image directory is null");
+            return null;
+        }
+        if (!imageDir.exists()) {
+            Utils.errMsg(this, "Cannot find directory: " + imageDir);
+            return null;
+        }
+        return imageDir;
+    }
 
-	/**
-	 * Sets the current image directory
-	 * 
-	 * @return
-	 */
-	private void setImageDirectory() {
-		AlertDialog.Builder alert = new AlertDialog.Builder(this);
-		alert.setTitle("Set Image Directory");
-		alert.setMessage("Image Directory (Leave blank for default):");
+    /**
+     * Sets the current image directory
+     *
+     * @return
+     */
+    private void setImageDirectory() {
+        AlertDialog.Builder alert = new AlertDialog.Builder(this);
+        alert.setTitle("Set Image Directory");
+        alert.setMessage("Image Directory (Leave blank for default):");
 
-		// Set an EditText view to get user input
-		final EditText input = new EditText(this);
-		// Set it with the current value
-		SharedPreferences prefs = getPreferences(MODE_PRIVATE);
-		String imageDirName = prefs.getString(PREF_IMAGE_DIRECTORY, null);
-		if (imageDirName != null) {
-			input.setText(imageDirName);
-		}
-		alert.setView(input);
+        // Set an EditText view to get user input
+        final EditText input = new EditText(this);
+        // Set it with the current value
+        SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        String imageDirName = prefs.getString(PREF_IMAGE_DIRECTORY, null);
+        if (imageDirName != null) {
+            input.setText(imageDirName);
+        }
+        alert.setView(input);
 
-		alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int whichButton) {
-				String value = input.getText().toString();
-				if (value.length() == 0) {
-					value = null;
-				}
-				SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
-						.edit();
-				editor.putString(PREF_IMAGE_DIRECTORY, value);
-				editor.commit();
-				reset();
-			}
-		});
+        alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int whichButton) {
+                String value = input.getText().toString();
+                if (value.length() == 0) {
+                    value = null;
+                }
+                SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
+                        .edit();
+                editor.putString(PREF_IMAGE_DIRECTORY, value);
+                editor.commit();
+                reset();
+            }
+        });
 
-		alert.setNegativeButton("Cancel",
-				new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int whichButton) {
-						// Do nothing
-					}
-				});
+        alert.setNegativeButton("Cancel",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        // Do nothing
+                    }
+                });
 
-		alert.show();
-	}
+        alert.show();
+    }
 
-	/**
-	 * Resets the file list.
-	 */
-	private void reset() {
-		// TODO Fix this to only use USE_ARRAY_LIST_ADAPTER.  Get rid of fileList.
-		// Get the available image files
-		try {
-			// Clear the current list
-			mFileNameList.clear();
-			File dir = getImageDirectory();
-			if (dir != null) {
-				File[] files = dir.listFiles();
-				List<File> fileList = new ArrayList<File>();
-				for (File file : files) {
-					if (!file.isDirectory()) {
-						String ext = Utils.getExtension(file);
-						if (ext.equals("jpg") || ext.equals("jpeg")
-								|| ext.equals("png") || ext.equals("gif")) {
-							fileList.add(file);
-							if (USE_ARRAY_LIST_ADAPTER) {
-								mFileNameList.add(file.getPath());
-							}
-						}
-					}
-				}
-				mFiles = new File[fileList.size()];
-				fileList.toArray(mFiles);
-			} else {
-				mFiles = new File[0];
-			}
-		} catch (Exception ex) {
-			Utils.excMsg(this, "Failed to get list of available files", ex);
-		}
+    /**
+     * Resets the file list.
+     */
+    private void reset() {
+        // Get the available image files
+        try {
+            // Clear the current list
+            mFileNameList.clear();
+            File dir = getImageDirectory();
+            if (dir != null) {
+                File[] files = dir.listFiles();
+                List<File> fileList = new ArrayList<File>();
+                for (File file : files) {
+                    if (!file.isDirectory()) {
+                        String ext = Utils.getExtension(file);
+                        if (ext.equals("jpg") || ext.equals("jpeg")
+                                || ext.equals("png") || ext.equals("gif")) {
+                            fileList.add(file);
+                            mFileNameList.add(file.getPath());
+                        }
+                    }
+                }
+                mFiles = new File[fileList.size()];
+                fileList.toArray(mFiles);
+            } else {
+                mFiles = new File[0];
+            }
+            Collections.sort(mFileNameList);
+        } catch (Exception ex) {
+            Utils.excMsg(this, "Failed to get list of available files", ex);
+        }
 
-		// Set the ListAdapter
-		if (USE_ARRAY_LIST_ADAPTER) {
-			ArrayAdapter<String> fileList = new ArrayAdapter<String>(this,
-					R.layout.row, mFileNameList);
-			setListAdapter(fileList);
-		} else {
-			setListAdapter(new FileListAdapter(this));
-		}
+        // Set the ListAdapter
+        ArrayAdapter<String> fileList = new ArrayAdapter<String>(this,
+                R.layout.row, mFileNameList);
+        setListAdapter(fileList);
 
-		ListView lv = getListView();
-		lv.setOnItemClickListener(new OnItemClickListener() {
-			@Override
-			public void onItemClick(AdapterView<?> parent, View view, int pos,
-					long id) {
-				if (pos < 0 || pos >= mFiles.length) {
-					return;
-				}
-				// Create the result Intent and include the fileName
-				Intent intent = new Intent();
-				String path = "";
-				if (USE_ARRAY_LIST_ADAPTER) {
-					path = mFileNameList.get(pos);
-				} else {
-					path = mFiles[pos].getPath();
-				}
-				intent.putExtra(OPEN_FILE_PATH, path);
+        ListView lv = getListView();
+        lv.setOnItemClickListener(new OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int pos,
+                                    long id) {
+                if (pos < 0 || pos >= mFiles.length) {
+                    return;
+                }
+                // Create the result Intent and include the fileName
+                Intent intent = new Intent();
+                String path = "";
+                path = mFileNameList.get(pos);
+                intent.putExtra(OPEN_FILE_PATH, path);
 
-				// Set result and finish this Activity
-				setResult(Activity.RESULT_OK, intent);
-				finish();
-			}
-		});
-	}
+                // Set result and finish this Activity
+                setResult(Activity.RESULT_OK, intent);
+                finish();
+            }
+        });
+    }
 
-	/**
-	 * @return
-	 */
-	public static File[] getFiles() {
-		return mFiles;
-	}
+    /**
+     * @return
+     */
+    public static File[] getFiles() {
+        return mFiles;
+    }
 
-	/**
-	 * /** A custom ListView adapter for our implementation. Based on the
-	 * efficient list adapter in the SDK APIDemos list14.java.
-	 */
-	private static class FileListAdapter extends BaseAdapter {
-		private LayoutInflater mInflater;
+    /**
+     * /** A custom ListView adapter for our implementation. Based on the
+     * efficient list adapter in the SDK APIDemos list14.java.
+     */
+    private static class FileListAdapter extends BaseAdapter {
+        private LayoutInflater mInflater;
 
-		public FileListAdapter(Context context) {
-			// Cache the LayoutInflate to avoid asking for a new one each time.
-			mInflater = LayoutInflater.from(context);
-		}
+        public FileListAdapter(Context context) {
+            // Cache the LayoutInflate to avoid asking for a new one each time.
+            mInflater = LayoutInflater.from(context);
+        }
 
-		/**
-		 * The number of items in the list.
-		 * 
-		 * @see android.widget.ListAdapter#getCount()
-		 */
-		public int getCount() {
-			return mFiles.length;
-		}
+        /**
+         * The number of items in the list.
+         *
+         * @see android.widget.ListAdapter#getCount()
+         */
+        public int getCount() {
+            return mFiles.length;
+        }
 
-		/**
-		 * Since the data comes from an array, just returning the index is
-		 * sufficient to get at the data. If we were using a more complex data
-		 * structure, we would return whatever object represents one row in the
-		 * list.
-		 * 
-		 * @see android.widget.ListAdapter#getItem(int)
-		 */
-		public Object getItem(int position) {
-			return position;
-		}
+        /**
+         * Since the data comes from an array, just returning the index is
+         * sufficient to get at the data. If we were using a more complex data
+         * structure, we would return whatever object represents one row in the
+         * list.
+         *
+         * @see android.widget.ListAdapter#getItem(int)
+         */
+        public Object getItem(int position) {
+            return position;
+        }
 
-		/**
-		 * Use the array index as a unique id.
-		 * 
-		 * @see android.widget.ListAdapter#getItemId(int)
-		 */
-		public long getItemId(int position) {
-			return position;
-		}
+        /**
+         * Use the array index as a unique id.
+         *
+         * @see android.widget.ListAdapter#getItemId(int)
+         */
+        public long getItemId(int position) {
+            return position;
+        }
 
-		/**
-		 * Make a view to hold each row.
-		 * 
-		 * @see android.widget.ListAdapter#getView(int, android.view.View,
-		 *      android.view.ViewGroup)
-		 */
-		@TargetApi(Build.VERSION_CODES.GINGERBREAD)
-		public View getView(int pos, View convertView, ViewGroup parent) {
-			// A ViewHolder keeps references to children views to avoid
-			// unnecessary calls
-			// to findViewById() on each row.
-			ViewHolder holder;
-			File file = mFiles[pos];
-			Log.d(TAG, this.getClass().getSimpleName() + "getView: pos=" + pos
-					+ "/" + getCount() + " name=" + file.getName());
+        /**
+         * Make a view to hold each row.
+         *
+         * @see android.widget.ListAdapter#getView(int, android.view.View,
+         * android.view.ViewGroup)
+         */
+        @TargetApi(Build.VERSION_CODES.GINGERBREAD)
+        public View getView(int pos, View convertView, ViewGroup parent) {
+            // A ViewHolder keeps references to children views to avoid
+            // unnecessary calls
+            // to findViewById() on each row.
+            ViewHolder holder;
+            File file = mFiles[pos];
+            Log.d(TAG, this.getClass().getSimpleName() + "getView: pos=" + pos
+                    + "/" + getCount() + " name=" + file.getName());
 
-			// When convertView is not null, we can reuse it directly, there is
-			// no need to reinflate it. We only inflate a new View when the
-			// convertView
-			// supplied by ListView is null.
-			if (convertView == null) {
-				convertView = mInflater.inflate(R.layout.list_row, null);
+            // When convertView is not null, we can reuse it directly, there is
+            // no need to reinflate it. We only inflate a new View when the
+            // convertView
+            // supplied by ListView is null.
+            if (convertView == null) {
+                convertView = mInflater.inflate(R.layout.list_row, null);
 
-				// Creates a ViewHolder and store references to the two children
-				// views
-				// we want to bind data to.
-				holder = new ViewHolder();
-				holder.title = (TextView) convertView.findViewById(R.id.title);
-				holder.subtitle = (TextView) convertView
-						.findViewById(R.id.subtitle);
+                // Creates a ViewHolder and store references to the two children
+                // views
+                // we want to bind data to.
+                holder = new ViewHolder();
+                holder.title = (TextView) convertView.findViewById(R.id.title);
+                holder.subtitle = (TextView) convertView
+                        .findViewById(R.id.subtitle);
 
-				convertView.setTag(holder);
-			} else {
-				// Get the ViewHolder back
-				holder = (ViewHolder) convertView.getTag();
-			}
-			holder.title.setText(file.getName());
-			double size = file.getTotalSpace() / 1024. / 1024.;
-			holder.subtitle.setText(String.format("Size: %0.3f MB", size));
-			return convertView;
-		}
+                convertView.setTag(holder);
+            } else {
+                // Get the ViewHolder back
+                holder = (ViewHolder) convertView.getTag();
+            }
+            holder.title.setText(file.getName());
+            double size = file.getTotalSpace() / 1024. / 1024.;
+            holder.subtitle.setText(String.format("Size: %0.3f MB", size));
+            return convertView;
+        }
 
-		static class ViewHolder {
-			TextView title;
-			TextView subtitle;
-		}
+        static class ViewHolder {
+            TextView title;
+            TextView subtitle;
+        }
 
-	}
+    }
 
 }

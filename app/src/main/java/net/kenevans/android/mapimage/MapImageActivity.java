@@ -7,8 +7,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.drawable.Drawable;
+import android.graphics.PointF;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -16,24 +15,23 @@ import android.location.LocationProvider;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.WindowManager;
 
 import com.davemorrissey.labs.subscaleview.ImageSource;
-import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView;
 
 import net.kenevans.android.mapimage.MapCalibration.MapData;
 
 import java.io.File;
 import java.util.List;
 
-
 public class MapImageActivity extends Activity implements IConstants,
         LocationListener {
-    // private MapImageView mImageView;
-    private SubsamplingScaleImageView mImageView;
+    private MapImageView mImageView;
+    private Location mLocation;
     private LocationManager mLocationManager;
     private String mProvider;
     private boolean mUseLocation = false;
@@ -59,7 +57,7 @@ public class MapImageActivity extends Activity implements IConstants,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         setContentView(R.layout.main);
-        mImageView = (SubsamplingScaleImageView) findViewById(R.id.imageview);
+        mImageView = (MapImageView) findViewById(R.id.imageview);
         mImageView.setMinimumDpi(MIN_DPI);
 
         // Create a directory on the SD card if not already there
@@ -96,22 +94,7 @@ public class MapImageActivity extends Activity implements IConstants,
                 }
                 disableLocation();
                 mUseLocation = false;
-                // TODO
-//			mImageView.setLocation(null, null);
-                mImageView.invalidate();
                 return true;
-            // case R.id.current_location:
-            // Location location = mImageView.getLocation();
-            // if (location == null) {
-            // Utils.infoMsg(this, "Current location is not available");
-            // } else {
-            // double lon = location.getLongitude();
-            // double lat = location.getLatitude();
-            // String info = String.format(Locale.US,
-            // "longitude=%.6f latitude=%.6f", lon, lat);
-            // Utils.infoMsg(this, info);
-            // }
-            // return true;
             case R.id.set_update_interval:
                 setUpdateInterval();
                 return true;
@@ -139,19 +122,11 @@ public class MapImageActivity extends Activity implements IConstants,
         String fileName = prefs.getString(PREF_FILENAME, null);
         Log.d(TAG, "  fileName=" + fileName);
         if (fileName == null) {
-            // TODO
-//			mImageView.setMapCalibration(null);
-//          mImageView.setImage(null);
+            mMapCalibration = null;
             setNoImage();
-//			mImageView.fitImage();
         } else {
             setNewImage(fileName);
-//			mImageView.setMapCalibration(null);
         }
-        // mImageView.setFitImageMode(MapImageView.IMAGEFITTED
-        // | MapImageView.IMAGECENTERED);
-
-        // Location
         enableLocation();
     }
 
@@ -188,48 +163,16 @@ public class MapImageActivity extends Activity implements IConstants,
                     boolean res = dir.mkdir();
                     if (!res) {
                         Utils.errMsg(this, "Cannot create directory: " + dir);
-                        return;
                     }
                 }
             } else {
                 Utils.errMsg(this, "Cannot create directory "
                         + SD_CARD_MAP_IMAGE_DIRECTORY + " on SD card");
-                return;
             }
         } catch (Exception ex) {
             Utils.excMsg(this, "Error creating directory "
                     + SD_CARD_MAP_IMAGE_DIRECTORY + " on SD card", ex);
         }
-    }
-
-    /**
-     * Get a Bitmap from a file. Static version that can be called by other
-     * Activities.
-     *
-     * @param context The context to use.
-     * @param file    The Bitmap file to use.
-     * @return The Bitmap or null on failure.
-     */
-    public static Bitmap getBitmap(Context context, File file) {
-        Log.d(TAG, context.getClass().getSimpleName() + ": getBitmap");
-        Bitmap bitmap = null;
-        try {
-            bitmap = BitmapFactory.decodeFile(file.getPath());
-            if (bitmap == null) {
-                Log.d(TAG, context.getClass().getSimpleName()
-                        + ": getBitmap: Bitmap is null");
-                Utils.errMsg(context, "Error reading image. Bitmap is null.");
-            } else {
-                Log.d(TAG, context.getClass().getSimpleName()
-                        + ": getBitmap: Got " + file.getPath());
-            }
-        } catch (Throwable t) {
-            // Need Throwable for OutOfMemory
-            Log.d(TAG, context.getClass().getSimpleName()
-                    + ": Error reading image", t);
-            Utils.excMsg(context, "Error reading image", t);
-        }
-        return bitmap;
     }
 
     /**
@@ -258,27 +201,23 @@ public class MapImageActivity extends Activity implements IConstants,
             } else {
                 info += fileName + "\n";
             }
-            int dWidth = 0, dHeight = 0;
             boolean hasDrawable = true;
-            // TODO
-//			Drawable drawable = mImageView.getDrawable();
-            Drawable drawable = null;
-            if (drawable == null) {
-                hasDrawable = false;
-                info += "No drawable\n";
-            } else {
-                dWidth = mImageView.getSWidth();
-                dHeight = mImageView.getSHeight();
-                info += String.format("%d x %d\n", dWidth, dHeight);
+            int dWidth = mImageView.getSWidth();
+            int dHeight = mImageView.getSHeight();
+            info += String.format("%d x %d\n", dWidth, dHeight);
+
+            // Get screen size and density
+            DisplayMetrics metrics = getResources().getDisplayMetrics();
+            if (metrics != null) {
+                info += "Screen Size " + metrics.widthPixels + "x" + metrics.heightPixels
+                        + " densityDpi " + metrics.densityDpi + " " + "\n";
             }
-            // TODO
-//			MapCalibration calib = mImageView.getMapCalibration();
-            MapCalibration calib = null;
-            if (calib == null || calib.getTransform() == null) {
+            // Calibration
+            if (mMapCalibration == null || mMapCalibration.getTransform() == null) {
                 info += "Not calibrated\n";
             } else {
                 info += "Calibrated\n";
-                List<MapData> dataList = calib.getDataList();
+                List<MapData> dataList = mMapCalibration.getDataList();
                 if (dataList != null) {
                     for (MapData data : dataList) {
                         info += String.format("  %04d   %04d  %11.6f %11.6f\n",
@@ -287,35 +226,35 @@ public class MapImageActivity extends Activity implements IConstants,
                     }
                 }
             }
+            // Location
             if (!mUseLocation) {
                 info += "Not using location\n";
             } else {
-                // TODO
-//				Location location = mImageView.getLocation();
-                Location location = null;
-                if (location == null) {
+                if (mLocation == null) {
                     info += "No location available\n";
                 } else {
-                    double lon = location.getLongitude();
-                    double lat = location.getLatitude();
-                    float accuracy = location.getAccuracy();
-                    int[] locationVals = calib.inverse(lon, lat);
+                    double lon = mLocation.getLongitude();
+                    double lat = mLocation.getLatitude();
+                    float accuracy = mLocation.getAccuracy();
                     info += String.format("Location %.6f, %.6f +/- %.2f m",
-                            location.getLongitude(), location.getLatitude(),
+                            mLocation.getLongitude(), mLocation.getLatitude(),
                             accuracy);
-                    if (locationVals != null) {
-                        info += String.format(" @ (%d, %d)\n", locationVals[0],
-                                locationVals[1]);
-                        if (hasDrawable) {
+                    try {
+                        int[] locationVals = mMapCalibration.inverse(lon, lat);
+                        if (locationVals != null) {
+                            info += String.format(" @ (%d, %d)\n", locationVals[0],
+                                    locationVals[1]);
                             if (locationVals[0] < 0
                                     || locationVals[0] >= dWidth
                                     || locationVals[1] < 0
                                     || locationVals[1] >= dHeight) {
                                 info += "Not within the image\n";
                             }
+                        } else {
+                            info += "\n    Error getting location image coordinates\n";
                         }
-                    } else {
-                        info += "\n";
+                    } catch (Exception ex) {
+                        // Do nothing
                     }
                 }
             }
@@ -340,18 +279,18 @@ public class MapImageActivity extends Activity implements IConstants,
             SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
                     .edit();
             editor.putString(PREF_FILENAME, filePath);
-            editor.commit();
+            editor.apply();
         }
     }
 
     /**
      * Bring up a dialog to change the sort order.
      */
+
     private void setUpdateInterval() {
-        final CharSequence[] items = new CharSequence[mUpdateIntervals.length];
-        for (int i = 0; i < mUpdateIntervals.length; i++) {
-            items[i] = mUpdateIntervals[i];
-        }
+        int len = mUpdateIntervals.length;
+        final CharSequence[] items = new CharSequence[len];
+        System.arraycopy(mUpdateIntervals, 0, items, 0, len);
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(getText(R.string.update_title));
         builder.setSingleChoiceItems(items, mUpdateInterval,
@@ -410,27 +349,16 @@ public class MapImageActivity extends Activity implements IConstants,
             return;
         }
         mMapCalibration = null;
-        // TODO
-//		mImageView.setMapCalibration(null);
-        // Remove the old bitmap to allow more memory
-        // TODO
-//        mImageView.setImage(null);
         setNoImage();
         // Save the value here
         SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
                 .edit();
         editor.putString(PREF_FILENAME, file.getPath());
-        editor.commit();
+        editor.apply();
         mImageView.setImage(ImageSource.uri(file.getPath()));
-        // TODO
-//			mImageView.fitImage();
-        // mImageView.setFitImageMode(MapImageView.IMAGEFITTED
-        // | MapImageView.IMAGECENTERED);
-        mImageView.forceLayout();
-
         // See if there is a calibration file
         int i = filePath.lastIndexOf('.');
-        String baseName = null;
+        String baseName;
         if (i > 0) {
             baseName = filePath.substring(0, i + 1);
             String calibFileName = baseName + CALIB_EXT;
@@ -451,8 +379,6 @@ public class MapImageActivity extends Activity implements IConstants,
                 }
             }
         }
-        // TODO
-//		mImageView.setMapCalibration(mMapCalibration);
     }
 
     private void notifyLocationDisabled() {
@@ -500,24 +426,40 @@ public class MapImageActivity extends Activity implements IConstants,
         mLocationManager.removeUpdates(this);
         mLocationManager = null;
         mProvider = null;
+        mLocation = null;
+        mImageView.setLocation(null);
     }
-
-    // LocationListener
 
     @Override
     public void onLocationChanged(Location location) {
-        // Log.d(TAG, this.getClass().getSimpleName() + ": onLocationChanged: "
-        // + location.getLongitude() + ", " + location.getLatitude());
+//        Log.d(TAG, this.getClass().getSimpleName() + ": onLocationChanged: "
+//                + location.getLongitude() + ", " + location.getLatitude());
 
-        // DEBUG
-        // Toast.makeText(
-        // this,
-        // String.format("Location %.6f %.6f", location.getLongitude(),
-        // location.getLatitude()), Toast.LENGTH_SHORT).show();
+//        // DEBUG
+//        Toast.makeText(
+//                this,
+//                String.format("Location %.6f %.6f", location.getLongitude(),
+//                        location.getLatitude()), Toast.LENGTH_SHORT).show();
+        mLocation = location;
+        if (mLocation == null) {
+            return;
+        }
         if (mMapCalibration != null && mMapCalibration.getTransform() != null) {
-            // TODO
-//			mImageView.setLocation(location, mMapCalibration);
-            mImageView.invalidate();
+            float lon = (float) location.getLongitude();
+            float lat = (float) location.getLatitude();
+            int[] locationVals = mMapCalibration.inverse(lon, lat);
+            if (locationVals == null) {
+                Log.d(TAG, this.getClass().getSimpleName()
+                        + "  locationVals  is null");
+                return;
+            }
+            PointF locationPoint = new PointF(locationVals[0], locationVals[1]);
+            if (locationPoint == null) {
+                Log.d(TAG, this.getClass().getSimpleName()
+                        + "  locationPoint  is null");
+                return;
+            }
+            mImageView.setLocation(locationPoint);
         } else {
             Log.d(TAG, this.getClass().getSimpleName()
                     + ": onLocationChanged: transform is null");
@@ -532,9 +474,7 @@ public class MapImageActivity extends Activity implements IConstants,
         // + LocationProvider.AVAILABLE + ")");
 
         if (status == LocationProvider.OUT_OF_SERVICE) {
-            // TODO
-//			mImageView.setLocation(null, mMapCalibration);
-            mImageView.invalidate();
+            mImageView.setLocation(null);
         }
     }
 
@@ -555,9 +495,7 @@ public class MapImageActivity extends Activity implements IConstants,
     @Override
     public void onProviderDisabled(String provider) {
         // Log.d(TAG, this.getClass().getSimpleName() + ": onProviderDisabled");
-
-        // TODO
-//		mImageView.setLocation(null, mMapCalibration);
+        mImageView.setLocation(null);
         mImageView.invalidate();
     }
 
