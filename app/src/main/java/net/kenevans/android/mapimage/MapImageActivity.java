@@ -193,7 +193,7 @@ public class MapImageActivity extends Activity implements IConstants,
 	 * 
 	 * @param context
 	 *            The context to use.
-	 * @param cDay
+	 * @param file The Bitmap file to use.
 	 * @return The Bitmap or null on failure.
 	 */
 	public static Bitmap getBitmap(Context context, File file) {

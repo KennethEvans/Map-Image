@@ -85,7 +85,7 @@ public class MapImageView extends ImageView implements IConstants {
 	/**
 	 * Use this constructor when calling from code.
 	 * 
-	 * @param mContext
+	 * @param context The contexxt to use.
 	 */
 	public MapImageView(Context context) {
 		super(context);
