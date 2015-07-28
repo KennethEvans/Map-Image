@@ -1,8 +1,0 @@
-<menu xmlns:android="http://schemas.android.com/apk/res/android" >
-    <item android:id="@+id/open" android:title="@string/open_item" />
-    <item android:id="@+id/start_location" android:title="@string/start_location_item" />
-    <item android:id="@+id/stop_location" android:title="@string/stop_location_item" />
-    <item android:id="@+id/set_update_interval" android:title="@string/update_title" />
-    <item android:id="@+id/image_info" android:title="@string/image_info" />
-    <item android:id="@+id/reset" android:title="@string/reset_item" />
-</menu>
