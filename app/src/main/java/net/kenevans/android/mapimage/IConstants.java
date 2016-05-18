@@ -47,6 +47,9 @@ public interface IConstants {
 	public static final String PREF_USE_LOCATION = "useLocation";
 	public static final String PREF_IMAGE_DIRECTORY = "imageDirectory";
 	public static final String PREF_UPDATE_INTERVAL = "updateInterval";
+	public static final String PREF_SCALE = "scale";
+	public static final String PREF_CENTER_X = "centerX";
+	public static final String PREF_CENTER_Y = "centerY";
 
 	// Messages
 	/** Request code for displaying an image. */

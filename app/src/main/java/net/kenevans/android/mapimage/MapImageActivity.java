@@ -126,6 +126,10 @@ public class MapImageActivity extends Activity implements IConstants,
             setNoImage();
         } else {
             setNewImage(fileName);
+            float x = prefs.getFloat(PREF_CENTER_X, 0);
+            float y = prefs.getFloat(PREF_CENTER_Y, 0);
+            float scale = prefs.getFloat(PREF_SCALE, 1);
+            mImageView.setScaleAndCenter(scale, new PointF(x, y));
         }
         enableLocation();
     }
@@ -137,6 +141,13 @@ public class MapImageActivity extends Activity implements IConstants,
         super.onPause();
         SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE).edit();
         editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
+        if (mImageView != null) {
+            PointF center = mImageView.getCenter();
+            float scale = mImageView.getScale();
+            editor.putFloat(PREF_CENTER_X, center.x);
+            editor.putFloat(PREF_CENTER_Y, center.y);
+            editor.putFloat(PREF_SCALE, scale);
+        }
         editor.commit();
         disableLocation();
     }
@@ -209,11 +220,13 @@ public class MapImageActivity extends Activity implements IConstants,
             // Get screen size and density
             DisplayMetrics metrics = getResources().getDisplayMetrics();
             if (metrics != null) {
-                info += "Screen Size " + metrics.widthPixels + "x" + metrics.heightPixels
+                info += "Screen Size " + metrics.widthPixels + "x" + metrics
+                        .heightPixels
                         + " densityDpi " + metrics.densityDpi + " " + "\n";
             }
             // Calibration
-            if (mMapCalibration == null || mMapCalibration.getTransform() == null) {
+            if (mMapCalibration == null || mMapCalibration.getTransform() ==
+                    null) {
                 info += "Not calibrated\n";
             } else {
                 info += "Calibrated\n";
@@ -242,7 +255,8 @@ public class MapImageActivity extends Activity implements IConstants,
                     try {
                         int[] locationVals = mMapCalibration.inverse(lon, lat);
                         if (locationVals != null) {
-                            info += String.format(" @ (%d, %d)\n", locationVals[0],
+                            info += String.format(" @ (%d, %d)\n",
+                                    locationVals[0],
                                     locationVals[1]);
                             if (locationVals[0] < 0
                                     || locationVals[0] >= dWidth
@@ -251,7 +265,8 @@ public class MapImageActivity extends Activity implements IConstants,
                                 info += "Not within the image\n";
                             }
                         } else {
-                            info += "\n    Error getting location image coordinates\n";
+                            info += "\n    Error getting location image " +
+                                    "coordinates\n";
                         }
                     } catch (Exception ex) {
                         // Do nothing
@@ -279,6 +294,10 @@ public class MapImageActivity extends Activity implements IConstants,
             SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
                     .edit();
             editor.putString(PREF_FILENAME, filePath);
+            // Reset the center and scale
+            editor.putFloat(PREF_CENTER_X, 0);
+            editor.putFloat(PREF_CENTER_Y, 0);
+            editor.putFloat(PREF_SCALE, 1);
             editor.apply();
         }
     }
@@ -384,7 +403,8 @@ public class MapImageActivity extends Activity implements IConstants,
     private void notifyLocationDisabled() {
         boolean enabled = mLocationManager.isProviderEnabled(mProvider);
         if (!enabled) {
-            Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+            Intent intent = new Intent(Settings
+                    .ACTION_LOCATION_SOURCE_SETTINGS);
             startActivity(intent);
         }
     }
@@ -394,7 +414,8 @@ public class MapImageActivity extends Activity implements IConstants,
             return;
         }
         // Get the location manager
-        mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        mLocationManager = (LocationManager) getSystemService(Context
+                .LOCATION_SERVICE);
         // Define the criteria how to select the location provider -> use
         // default
         // Criteria criteria = new Criteria();
