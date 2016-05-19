@@ -126,29 +126,25 @@ public class MapImageActivity extends Activity implements IConstants,
             setNoImage();
         } else {
             setNewImage(fileName);
-            float x = prefs.getFloat(PREF_CENTER_X, Float.MIN_VALUE);
-            float y = prefs.getFloat(PREF_CENTER_Y, Float.MIN_VALUE);
-            float scale = prefs.getFloat(PREF_SCALE, Float.MIN_VALUE);
-            if (scale != Float.MIN_VALUE && x != Float.MIN_VALUE && y !=
-                    Float.MIN_VALUE) {
-                mImageView.setScaleAndCenter(scale, new PointF(x, y));
-            }
-            enableLocation();
+            float x = prefs.getFloat(PREF_CENTER_X, 0);
+            float y = prefs.getFloat(PREF_CENTER_Y, 0);
+            float scale = prefs.getFloat(PREF_SCALE, 1);
+            mImageView.setScaleAndCenter(scale, new PointF(x, y));
         }
+        enableLocation();
     }
 
     @Override
     protected void onPause() {
-        Log.d(TAG, this.getClass().getSimpleName() + ": onPause: " +
-                "mUseLocation="
+        Log.d(TAG, this.getClass().getSimpleName() + ": onPause: mUseLocation="
                 + mUseLocation + " mUpdateInterval=" + mUpdateInterval);
         super.onPause();
-        SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
-                .edit();
+        SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE).edit();
         editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
         if (mImageView != null) {
             PointF center = mImageView.getCenter();
             float scale = mImageView.getScale();
+            editor.putFloat(PREF_CENTER_X, center.x);
             editor.putFloat(PREF_CENTER_Y, center.y);
             editor.putFloat(PREF_SCALE, scale);
         }
@@ -299,9 +295,9 @@ public class MapImageActivity extends Activity implements IConstants,
                     .edit();
             editor.putString(PREF_FILENAME, filePath);
             // Reset the center and scale
-            editor.putFloat(PREF_CENTER_X, Float.MIN_VALUE);
-            editor.putFloat(PREF_CENTER_Y, Float.MIN_VALUE);
-            editor.putFloat(PREF_SCALE, Float.MIN_VALUE);
+            editor.putFloat(PREF_CENTER_X, 0);
+            editor.putFloat(PREF_CENTER_Y, 0);
+            editor.putFloat(PREF_SCALE, 1);
             editor.apply();
         }
     }
