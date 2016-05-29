@@ -103,7 +103,7 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
                 SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
                         .edit();
                 editor.putString(PREF_IMAGE_DIRECTORY, imageDir.getPath());
-                editor.commit();
+                editor.apply();
             }
         }
         if (imageDir == null) {
@@ -146,14 +146,15 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
                 SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
                         .edit();
                 editor.putString(PREF_IMAGE_DIRECTORY, value);
-                editor.commit();
+                editor.apply();
                 reset();
             }
         });
 
         alert.setNegativeButton("Cancel",
                 new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int whichButton) {
+                    public void onClick(DialogInterface dialog, int
+                            whichButton) {
                         // Do nothing
                     }
                 });

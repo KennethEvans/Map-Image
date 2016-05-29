@@ -1,0 +1,53 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<title>Application Information</title>
+</head>
+<body>
+<h3 align="center">Map Image </h3>
+<p align="left">This application displays images that represent maps. To be useful the maps must have an associated <a href="#calibration">calibration file</a> that assigns the latitude and longitude for the pixels of the map. The current location can then be displayed in Map Image, showing where the user is on the map. The user must supply the image and the calibration file and put them in the app's <a href="#imagedirectory">Image Directory</a>.</p>
+<p align="left">The images can be large as they are implemented by tiles. (See the <a href="#acknowledgement">Acknowledgement</a>.) </p>
+<p align="left">The application does not use a data connection and so can be used in locations where there is no connection, such as out in the woods. It also does not run up data charges.</p>
+<h3 align="left">Operations</h3>
+<p align="left">You may zoom the image out using two fingers and pan using one or two fingers. Double tap toggles zooming in and restoring to the default size.</p>
+<p align="left">If the double tap is performed so the second tap is held down and moved, then instead of restoring to the original size, you can continue to zoom in and out about that point with the one finger as long as it is held down. This is similar to a feature of Google Maps. </p>
+<p align="left">The app remembers the image and the last zoom and pan values when it exits, so that it should come back to where you left it when it resumes. It also remembers if location was being used. </p>
+<h3 align="left"><a name="calibration" id="calibration"></a>Calibration</h3>
+<p align="left">The calibration is specified in a text file with lines of the form:</p>
+<p align="left"> integer x, white space, integer y, white space, decimal longitude, white space, decimal latitude.</p>
+<p align="left">These can optionally be followed by:</p>
+<p align="left"> white space, then a comment.</p>
+<p align="left">x and y are the pixel coordinates in the image, starting at (0, 0) in the upper left and ending at (width-1, height-1) in the lower right. There must be at least three such lines, but there can be as many over this as you like. The app will find the best fit to all the values specified.</p>
+<p align="left">The user must create the .calib file by knowing the latitude and longitude for points in the image. These could be the corners or landmarks.</p>
+<p align="left">One way to determine these values is by placing the image as an overlay in Google Earth (Add | Image Overlay) then adjusting it to match up with what is displayed in Google Earth. You can then put placemarks on the corners and get the latitude and longitude from the placemarks. Use Add Placemark and move the pushpin icon so the point is at each corner in turn. </p>
+<p align="left">This is an example of a calib file corresponding to an image of width 832 and height 1079. (The calibration points are at the corners in this case):</p>
+<pre align="left">   0     0   -83.603411    42.642879 NW
+ 831     0   -83.568607    42.643245 NE
+ 831  1078   -83.568255    42.609770 SE
+   0  1078   -83.603059    42.609404 SW
+ </pre>
+<h3 align="left"><a name="imagedirectory" id="imagedirectory"></a>Image Directory</h3>
+<p align="left">The image directory is named MapImage and will be on the internal SD card by defaut. It can be set from the menu in the activity where you choose a new image, and you can choose to set it on the external SD card if there is one. You can also have several and change them via this menu item. </p>
+<p align="left">The maps must be put in this directory by the user. Any image format accepted by Android may be used. PNG or JPG are most common. In addition, in order to use location, there must be a file with the same prefix, but with the suffix .calib. This file must contain the <a href="#calibration">calibration</a> information. </p>
+<h3 align="left">Menu Items </h3>
+<h4>New Image </h4>
+<p>Allows you to pick a new image among those in the image directory. </p>
+<h4>Start Location </h4>
+<p>Start using location. Starting and stopping location allow you to save battery if desired. The cursor only shows if you are using location and there is a valid location. You do not have to turn off location before exiting. It is turned off when the app exits, and it is restored to what it was before when the app resumes. </p>
+<h4>Stop Location </h4>
+<p>Stop using location. </p>
+<h4>Set Update Interval </h4>
+<p>Set how often the location is updated. Choices are Fastest, Fast, and Slow, corresponding to 0 sec, 1 sec, and 6 sec. The system may not  update as fast in practice as specified. </p>
+<h4>Info</h4>
+<p>Shows information about the image including its path in the file system and image size, information about the screen size and density, the calibration numbers, the location if it is available, and if the location is within the image. </p>
+<h4>Reset</h4>
+<p>Re-scales and centers the image. This can also be accomplished by double tapping the image. </p>
+<h4>Help</h4>
+<p>Displays this page.</p>
+<h3 align="left"><a name="acknowledgement" id="acknowledgement"></a>Acknowledgement</h3>
+<p>The scaling, zooming, and panning in the View is based on the work of Dave Morrissey.</p>
+<p><a href="https://github.com/davemorrissey/subsampling-scale-image-view/wiki">https://github.com/davemorrissey/subsampling-scale-image-view/wiki</a> </p>
+<p>&nbsp;</p>
+</body>
+</html>

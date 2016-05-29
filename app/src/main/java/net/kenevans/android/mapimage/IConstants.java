@@ -25,35 +25,69 @@ package net.kenevans.android.mapimage;
  * Holds constant values used by several classes in the application.
  */
 public interface IConstants {
-	/** Tag to associate with log messages. */
-	public static final String TAG = "MapImage";
+    /**
+     * Tag to associate with log messages.
+     */
+    public static final String TAG = "MapImage";
 
-	/** Extension for calibration files */
-	public static final String CALIB_EXT = "calib";
+    /**
+     * Key for information URL sent to InfoActivity.
+     */
+    String INFO_URL = "InformationURL";
 
-	/** Minimum update interval array. Values are in ms. */
-	public static long[] LOCATION_UPDATE_TIMES = { 0, 1000, 60000 };
+    /**
+     * Extension for calibration files
+     */
+    public static final String CALIB_EXT = "calib";
 
-	/** Minimum update distance array Values are in m. */
-	public static float[] LOCATION_UPDATE_DISTANCES = { 0f, .5f, 10f };
+    /**
+     * Minimum update interval array. Values are in ms.
+     */
+    public static long[] LOCATION_UPDATE_TIMES = {0, 1000, 60000};
 
-	/** Minimum Dpi for zooming.  Default is 160. */
-	public static int MIN_DPI = 20;
+    /**
+     * Minimum update distance array Values are in m.
+     */
+    public static float[] LOCATION_UPDATE_DISTANCES = {0f, .5f, 10f};
 
-	/** Directory on the SD card where strips are saved */
-	public static final String SD_CARD_MAP_IMAGE_DIRECTORY = "MapImage";
+    /**
+     * The default x value of the center of the image.
+     */
+    public static int X_DEFAULT = 0;
+    /**
+     * The default y value of the center of the image.
+     */
+    public static int Y_DEFAULT = 0;
+    /**
+     * The default scale of the image.
+     */
+    public static int SCALE_DEFAULT = 1;
 
-	public static final String PREF_FILENAME = "fileName";
-	public static final String PREF_USE_LOCATION = "useLocation";
-	public static final String PREF_IMAGE_DIRECTORY = "imageDirectory";
-	public static final String PREF_UPDATE_INTERVAL = "updateInterval";
-	public static final String PREF_SCALE = "scale";
-	public static final String PREF_CENTER_X = "centerX";
-	public static final String PREF_CENTER_Y = "centerY";
+    /**
+     * Minimum Dpi for zooming.  Default is 160.
+     */
+    public static int MIN_DPI = 20;
 
-	// Messages
-	/** Request code for displaying an image. */
-	public static final int DISPLAY_IMAGE = 0;
-	/** Result code for DISPLAY_MESSAGE indicating the previous message. */
-	public static final String OPEN_FILE_PATH = "OpenFileName";
+    /**
+     * Directory on the SD card where strips are saved
+     */
+    public static final String SD_CARD_MAP_IMAGE_DIRECTORY = "MapImage";
+
+    public static final String PREF_FILENAME = "fileName";
+    public static final String PREF_USE_LOCATION = "useLocation";
+    public static final String PREF_IMAGE_DIRECTORY = "imageDirectory";
+    public static final String PREF_UPDATE_INTERVAL = "updateInterval";
+    public static final String PREF_SCALE = "scale";
+    public static final String PREF_CENTER_X = "centerX";
+    public static final String PREF_CENTER_Y = "centerY";
+
+    // Messages
+    /**
+     * Request code for displaying an image.
+     */
+    public static final int DISPLAY_IMAGE = 0;
+    /**
+     * Result code for DISPLAY_MESSAGE indicating the previous message.
+     */
+    public static final String OPEN_FILE_PATH = "OpenFileName";
 }

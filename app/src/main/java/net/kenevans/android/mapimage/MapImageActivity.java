@@ -13,7 +13,6 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.location.LocationProvider;
 import android.os.Bundle;
-import android.os.Environment;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -59,9 +58,6 @@ public class MapImageActivity extends Activity implements IConstants,
         setContentView(R.layout.main);
         mImageView = (MapImageView) findViewById(R.id.imageview);
         mImageView.setMinimumDpi(MIN_DPI);
-
-        // Create a directory on the SD card if not already there
-        setUserDirectory();
     }
 
     @Override
@@ -84,7 +80,7 @@ public class MapImageActivity extends Activity implements IConstants,
                     return true;
                 }
                 mUseLocation = true;
-                enableLocation();
+                setupLocation();
                 notifyLocationDisabled();
                 return true;
             case R.id.stop_location:
@@ -103,6 +99,9 @@ public class MapImageActivity extends Activity implements IConstants,
                 return true;
             case R.id.reset:
                 reset();
+                return true;
+            case R.id.help:
+                showHelp();
                 return true;
         }
         return false;
@@ -125,65 +124,50 @@ public class MapImageActivity extends Activity implements IConstants,
             mMapCalibration = null;
             setNoImage();
         } else {
-            setNewImage(fileName);
-            float x = prefs.getFloat(PREF_CENTER_X, 0);
-            float y = prefs.getFloat(PREF_CENTER_Y, 0);
-            float scale = prefs.getFloat(PREF_SCALE, 1);
-            mImageView.setScaleAndCenter(scale, new PointF(x, y));
+            if (mImageView != null) {
+                setNewImage(fileName);
+                float x = prefs.getFloat(PREF_CENTER_X, X_DEFAULT);
+                float y = prefs.getFloat(PREF_CENTER_Y, Y_DEFAULT);
+                float scale = prefs.getFloat(PREF_SCALE, SCALE_DEFAULT);
+                if (scale != SCALE_DEFAULT || x != X_DEFAULT || y !=
+                        Y_DEFAULT) {
+                    mImageView.setScaleAndCenter(scale, new PointF(x, y));
+                }
+            }
+            setupLocation();
         }
-        enableLocation();
     }
 
     @Override
     protected void onPause() {
-        Log.d(TAG, this.getClass().getSimpleName() + ": onPause: mUseLocation="
+        Log.d(TAG, this.getClass().getSimpleName() + ": onPause: " +
+                "mUseLocation="
                 + mUseLocation + " mUpdateInterval=" + mUpdateInterval);
         super.onPause();
-        SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE).edit();
+        SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
+                .edit();
         editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
         if (mImageView != null) {
             PointF center = mImageView.getCenter();
             float scale = mImageView.getScale();
-            editor.putFloat(PREF_CENTER_X, center.x);
-            editor.putFloat(PREF_CENTER_Y, center.y);
-            editor.putFloat(PREF_SCALE, scale);
+            if (center != null) {
+                editor.putFloat(PREF_CENTER_X, center.x);
+                editor.putFloat(PREF_CENTER_Y, center.y);
+                editor.putFloat(PREF_SCALE, scale);
+                editor.apply();
+            }
         }
-        editor.commit();
         disableLocation();
     }
+
+    /**
+     * Sets a 1x1 Bitmap as the current image.
+     */
 
     private void setNoImage() {
         Bitmap.Config conf = Bitmap.Config.ARGB_8888;
         Bitmap bmp = Bitmap.createBitmap(1, 1, conf);
         mImageView.setImage(ImageSource.bitmap(bmp));
-    }
-
-    private void setUserDirectory() {
-        try {
-            File sdCardRoot = Environment.getExternalStorageDirectory();
-            if (sdCardRoot.canWrite()) {
-                File dir = new File(sdCardRoot, SD_CARD_MAP_IMAGE_DIRECTORY);
-                if (dir.exists() && dir.isFile()) {
-                    Utils.errMsg(this, "Cannot create directory: " + dir
-                            + "\nA file with that name exists.");
-                    return;
-                }
-                if (!dir.exists()) {
-                    Log.d(TAG, this.getClass().getSimpleName()
-                            + ": create: dir=" + dir.getPath());
-                    boolean res = dir.mkdir();
-                    if (!res) {
-                        Utils.errMsg(this, "Cannot create directory: " + dir);
-                    }
-                }
-            } else {
-                Utils.errMsg(this, "Cannot create directory "
-                        + SD_CARD_MAP_IMAGE_DIRECTORY + " on SD card");
-            }
-        } catch (Exception ex) {
-            Utils.excMsg(this, "Error creating directory "
-                    + SD_CARD_MAP_IMAGE_DIRECTORY + " on SD card", ex);
-        }
     }
 
     /**
@@ -294,11 +278,28 @@ public class MapImageActivity extends Activity implements IConstants,
             SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
                     .edit();
             editor.putString(PREF_FILENAME, filePath);
-            // Reset the center and scale
-            editor.putFloat(PREF_CENTER_X, 0);
-            editor.putFloat(PREF_CENTER_Y, 0);
-            editor.putFloat(PREF_SCALE, 1);
+            // Reset the preferences to the defaults
+            editor.putFloat(PREF_CENTER_X, X_DEFAULT);
+            editor.putFloat(PREF_CENTER_Y, Y_DEFAULT);
+            editor.putFloat(PREF_SCALE, SCALE_DEFAULT);
             editor.apply();
+        }
+    }
+
+    /**
+     * Show the help.
+     */
+    private void showHelp() {
+        try {
+            // Start theInfoActivity
+            Intent intent = new Intent();
+            intent.setClass(this, InfoActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                    | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            intent.putExtra(INFO_URL, "file:///android_asset/mapimage.html");
+            startActivity(intent);
+        } catch (Exception ex) {
+            Utils.excMsg(this, getString(R.string.help_show_error), ex);
         }
     }
 
@@ -326,10 +327,10 @@ public class MapImageActivity extends Activity implements IConstants,
                         SharedPreferences.Editor editor = getPreferences(
                                 MODE_PRIVATE).edit();
                         editor.putInt(PREF_UPDATE_INTERVAL, mUpdateInterval);
-                        editor.commit();
+                        editor.apply();
                         // Reset the location
                         disableLocation();
-                        enableLocation();
+                        setupLocation();
                     }
                 });
         AlertDialog alert = builder.create();
@@ -369,11 +370,6 @@ public class MapImageActivity extends Activity implements IConstants,
         }
         mMapCalibration = null;
         setNoImage();
-        // Save the value here
-        SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
-                .edit();
-        editor.putString(PREF_FILENAME, file.getPath());
-        editor.apply();
         mImageView.setImage(ImageSource.uri(file.getPath()));
         // See if there is a calibration file
         int i = filePath.lastIndexOf('.');
@@ -409,7 +405,10 @@ public class MapImageActivity extends Activity implements IConstants,
         }
     }
 
-    private void enableLocation() {
+    /**
+     * Initializes location parameters.  Does nothing if not using location.
+     */
+    private void setupLocation() {
         if (!mUseLocation) {
             return;
         }
