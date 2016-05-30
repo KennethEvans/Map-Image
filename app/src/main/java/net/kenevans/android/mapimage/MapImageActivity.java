@@ -26,6 +26,7 @@ import net.kenevans.android.mapimage.MapCalibration.MapData;
 
 import java.io.File;
 import java.util.List;
+import java.util.Locale;
 
 public class MapImageActivity extends Activity implements IConstants,
         LocationListener {
@@ -196,10 +197,9 @@ public class MapImageActivity extends Activity implements IConstants,
             } else {
                 info += fileName + "\n";
             }
-            boolean hasDrawable = true;
             int dWidth = mImageView.getSWidth();
             int dHeight = mImageView.getSHeight();
-            info += String.format("%d x %d\n", dWidth, dHeight);
+            info += String.format(Locale.US, "%d x %d\n", dWidth, dHeight);
 
             // Get screen size and density
             DisplayMetrics metrics = getResources().getDisplayMetrics();
@@ -217,7 +217,8 @@ public class MapImageActivity extends Activity implements IConstants,
                 List<MapData> dataList = mMapCalibration.getDataList();
                 if (dataList != null) {
                     for (MapData data : dataList) {
-                        info += String.format("  %04d   %04d  %11.6f %11.6f\n",
+                        info += String.format(Locale.US,
+                                "  %04d   %04d  %11.6f %11.6f\n",
                                 data.getX(), data.getY(), +data.getLon(),
                                 data.getLat());
                     }
@@ -233,13 +234,14 @@ public class MapImageActivity extends Activity implements IConstants,
                     double lon = mLocation.getLongitude();
                     double lat = mLocation.getLatitude();
                     float accuracy = mLocation.getAccuracy();
-                    info += String.format("Location %.6f, %.6f +/- %.2f m",
+                    info += String.format(Locale.US,
+                            "Location %.6f, %.6f +/- %.2f m",
                             mLocation.getLongitude(), mLocation.getLatitude(),
                             accuracy);
                     try {
                         int[] locationVals = mMapCalibration.inverse(lon, lat);
                         if (locationVals != null) {
-                            info += String.format(" @ (%d, %d)\n",
+                            info += String.format(Locale.US, " @ (%d, %d)\n",
                                     locationVals[0],
                                     locationVals[1]);
                             if (locationVals[0] < 0
@@ -420,7 +422,7 @@ public class MapImageActivity extends Activity implements IConstants,
         // Criteria criteria = new Criteria();
         // provider = mLocationManager.getBestProvider(criteria, false);
         mProvider = LocationManager.GPS_PROVIDER;
-        if (mProvider == null || mLocationManager == null
+        if (mLocationManager == null
                 || !mLocationManager.isProviderEnabled(mProvider)) {
             return;
         }
@@ -474,11 +476,6 @@ public class MapImageActivity extends Activity implements IConstants,
                 return;
             }
             PointF locationPoint = new PointF(locationVals[0], locationVals[1]);
-            if (locationPoint == null) {
-                Log.d(TAG, this.getClass().getSimpleName()
-                        + "  locationPoint  is null");
-                return;
-            }
             mImageView.setLocation(locationPoint);
         } else {
             Log.d(TAG, this.getClass().getSimpleName()

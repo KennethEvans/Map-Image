@@ -48,7 +48,6 @@ public class InfoActivity extends Activity implements IConstants {
         // Get the URL
         Bundle extras = getIntent().getExtras();
         String url = extras != null ? extras.getString(INFO_URL) : null;
-        // TODO For now use the test page
         if (url == null || url.length() == 0) {
             Toast.makeText(this, R.string.help_url_not_found,
                     Toast.LENGTH_LONG).show();

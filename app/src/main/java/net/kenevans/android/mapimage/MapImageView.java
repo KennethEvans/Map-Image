@@ -34,13 +34,15 @@ import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView;
 /**
  * Based on an example at:
  *
- * @link http://stackoverflow.com/questions/2537238/how-can-i-get-zoom-functionality
+ * @link http://stackoverflow
+ * .com/questions/2537238/how-can-i-get-zoom-functionality
  * -for-images
  */
-public class MapImageView extends SubsamplingScaleImageView implements IConstants {
+public class MapImageView extends SubsamplingScaleImageView implements
+        IConstants {
     private Bitmap mLocationCursor;
     private PointF mLocationPoint;
-    private Context mContext;
+    private Paint mPaint;
 
     /**
      * Use this constructor when calling from code.
@@ -50,7 +52,6 @@ public class MapImageView extends SubsamplingScaleImageView implements IConstant
     public MapImageView(Context context) {
         super(context);
         super.setClickable(true);
-        this.mContext = context;
         init();
     }
 
@@ -63,7 +64,6 @@ public class MapImageView extends SubsamplingScaleImageView implements IConstant
     public MapImageView(Context context, AttributeSet attrs) {
         super(context, attrs);
         super.setClickable(true);
-        this.mContext = context;
         init();
     }
 
@@ -71,18 +71,21 @@ public class MapImageView extends SubsamplingScaleImageView implements IConstant
      * Does the additional setup in the constructor.
      */
     private void init() {
-        float density = getResources().getDisplayMetrics().densityDpi;
-        mLocationCursor = BitmapFactory.decodeResource(this.getResources(), R.drawable.location);
+//        float density = getResources().getDisplayMetrics().densityDpi;
+        mLocationCursor = BitmapFactory.decodeResource(this.getResources(), R
+                .drawable.location);
         // Create the location cursor
 //        float w = (density / 420f) * mLocationCursor.getWidth();
 //        float h = (density / 420f) * mLocationCursor.getHeight();
 //        float w = mLocationCursor.getWidth();
 //        float h = mLocationCursor.getHeight();
-//        mLocationCursor = Bitmap.createScaledBitmap(mLocationCursor, (int) w, (int) h, true);
+//        mLocationCursor = Bitmap.createScaledBitmap(mLocationCursor, (int)
+// w, (int) h, true);
 
 //        // Create the cursor bitmap
 //        int size = 15;
-//        mLocationCursor = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+//        mLocationCursor = Bitmap.createBitmap(size, size, Bitmap.Config
+// .ARGB_8888);
 //        Paint paint = new Paint();
 //        paint.setAntiAlias(true);
 //        paint.setColor(0xFFFF0000);
@@ -92,7 +95,7 @@ public class MapImageView extends SubsamplingScaleImageView implements IConstant
 
     public void setLocation(PointF locationPoint) {
         this.mLocationPoint = locationPoint;
-        if(mLocationCursor == null) {
+        if (mLocationCursor == null) {
             init();
         }
         invalidate();
@@ -101,14 +104,18 @@ public class MapImageView extends SubsamplingScaleImageView implements IConstant
     @Override
     protected void onDraw(Canvas canvas) {
 //        Log.d(TAG, this.getClass().getSimpleName()
-//                + ": onDraw:" + " mLocationPoint=" + mLocationPoint.x + "," + mLocationPoint.y);
+//                + ": onDraw:" + " mLocationPoint=" + mLocationPoint.x + ","
+// + mLocationPoint.y);
         super.onDraw(canvas);
-        // Don't draw cursor before image is ready so it doesn't move around during setup.
+        // Don't draw cursor before image is ready so it doesn't move around
+        // during setup.
         if (!isReady()) {
             return;
         }
-        Paint paint = new Paint();
-        paint.setAntiAlias(true);
+        if (mPaint == null) {
+            mPaint = new Paint();
+        }
+        mPaint.setAntiAlias(true);
         if (mLocationPoint != null && mLocationCursor != null) {
             PointF vPoint = sourceToViewCoord(mLocationPoint);
             float vX = vPoint.x - (mLocationCursor.getWidth() / 2);
@@ -116,11 +123,12 @@ public class MapImageView extends SubsamplingScaleImageView implements IConstant
 //            Log.d(TAG, "vPoint=" + mLocationPoint.x + "," + mLocationPoint.y +
 //                    " v=" + vX + "," + vY);
 //            Log.d(TAG, "mLocationCursor="
-//                    + mLocationCursor.getWidth() + "," + mLocationCursor.getHeight());
+//                    + mLocationCursor.getWidth() + "," + mLocationCursor
+// .getHeight());
 //            Log.d(TAG, "mLocationCursor="
 //                    + mLocationCursor.getScaledWidth(canvas) + ","
 //                    + mLocationCursor.getScaledHeight(canvas));
-            canvas.drawBitmap(mLocationCursor, vX, vY, paint);
+            canvas.drawBitmap(mLocationCursor, vX, vY, mPaint);
         }
     }
 

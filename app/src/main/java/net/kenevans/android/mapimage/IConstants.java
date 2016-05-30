@@ -28,7 +28,7 @@ public interface IConstants {
     /**
      * Tag to associate with log messages.
      */
-    public static final String TAG = "MapImage";
+    String TAG = "MapImage";
 
     /**
      * Key for information URL sent to InfoActivity.
@@ -38,56 +38,56 @@ public interface IConstants {
     /**
      * Extension for calibration files
      */
-    public static final String CALIB_EXT = "calib";
+    String CALIB_EXT = "calib";
 
     /**
      * Minimum update interval array. Values are in ms.
      */
-    public static long[] LOCATION_UPDATE_TIMES = {0, 1000, 60000};
+    long[] LOCATION_UPDATE_TIMES = {0, 1000, 60000};
 
     /**
      * Minimum update distance array Values are in m.
      */
-    public static float[] LOCATION_UPDATE_DISTANCES = {0f, .5f, 10f};
+    float[] LOCATION_UPDATE_DISTANCES = {0f, .5f, 10f};
 
     /**
      * The default x value of the center of the image.
      */
-    public static int X_DEFAULT = 0;
+    int X_DEFAULT = 0;
     /**
      * The default y value of the center of the image.
      */
-    public static int Y_DEFAULT = 0;
+    int Y_DEFAULT = 0;
     /**
      * The default scale of the image.
      */
-    public static int SCALE_DEFAULT = 1;
+    int SCALE_DEFAULT = 1;
 
     /**
      * Minimum Dpi for zooming.  Default is 160.
      */
-    public static int MIN_DPI = 20;
+    int MIN_DPI = 20;
 
     /**
      * Directory on the SD card where strips are saved
      */
-    public static final String SD_CARD_MAP_IMAGE_DIRECTORY = "MapImage";
+    String SD_CARD_MAP_IMAGE_DIRECTORY = "MapImage";
 
-    public static final String PREF_FILENAME = "fileName";
-    public static final String PREF_USE_LOCATION = "useLocation";
-    public static final String PREF_IMAGE_DIRECTORY = "imageDirectory";
-    public static final String PREF_UPDATE_INTERVAL = "updateInterval";
-    public static final String PREF_SCALE = "scale";
-    public static final String PREF_CENTER_X = "centerX";
-    public static final String PREF_CENTER_Y = "centerY";
+    String PREF_FILENAME = "fileName";
+    String PREF_USE_LOCATION = "useLocation";
+    String PREF_IMAGE_DIRECTORY = "imageDirectory";
+    String PREF_UPDATE_INTERVAL = "updateInterval";
+    String PREF_SCALE = "scale";
+    String PREF_CENTER_X = "centerX";
+    String PREF_CENTER_Y = "centerY";
 
     // Messages
     /**
      * Request code for displaying an image.
      */
-    public static final int DISPLAY_IMAGE = 0;
+    int DISPLAY_IMAGE = 0;
     /**
      * Result code for DISPLAY_MESSAGE indicating the previous message.
      */
-    public static final String OPEN_FILE_PATH = "OpenFileName";
+    String OPEN_FILE_PATH = "OpenFileName";
 }

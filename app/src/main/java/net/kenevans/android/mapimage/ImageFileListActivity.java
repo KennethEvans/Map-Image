@@ -21,30 +21,22 @@
 
 package net.kenevans.android.mapimage;
 
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ListActivity;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
-import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.ListView;
-import android.widget.TextView;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -52,6 +44,9 @@ import java.util.Collections;
 import java.util.List;
 
 public class ImageFileListActivity extends ListActivity implements IConstants {
+    /**
+     * Holds the list of files.
+     */
     private static File[] mFiles;
     private List<String> mFileNameList = new ArrayList<String>();
 
@@ -87,7 +82,7 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
     /**
      * Gets the current image directory
      *
-     * @return
+     * @return The image directory.
      */
     private File getImageDirectory() {
         SharedPreferences prefs = getPreferences(MODE_PRIVATE);
@@ -119,8 +114,6 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
 
     /**
      * Sets the current image directory
-     *
-     * @return
      */
     private void setImageDirectory() {
         AlertDialog.Builder alert = new AlertDialog.Builder(this);
@@ -209,8 +202,7 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
                 }
                 // Create the result Intent and include the fileName
                 Intent intent = new Intent();
-                String path = "";
-                path = mFileNameList.get(pos);
+                String path = mFileNameList.get(pos);
                 intent.putExtra(OPEN_FILE_PATH, path);
 
                 // Set result and finish this Activity
@@ -218,104 +210,6 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
                 finish();
             }
         });
-    }
-
-    /**
-     * @return
-     */
-    public static File[] getFiles() {
-        return mFiles;
-    }
-
-    /**
-     * /** A custom ListView adapter for our implementation. Based on the
-     * efficient list adapter in the SDK APIDemos list14.java.
-     */
-    private static class FileListAdapter extends BaseAdapter {
-        private LayoutInflater mInflater;
-
-        public FileListAdapter(Context context) {
-            // Cache the LayoutInflate to avoid asking for a new one each time.
-            mInflater = LayoutInflater.from(context);
-        }
-
-        /**
-         * The number of items in the list.
-         *
-         * @see android.widget.ListAdapter#getCount()
-         */
-        public int getCount() {
-            return mFiles.length;
-        }
-
-        /**
-         * Since the data comes from an array, just returning the index is
-         * sufficient to get at the data. If we were using a more complex data
-         * structure, we would return whatever object represents one row in the
-         * list.
-         *
-         * @see android.widget.ListAdapter#getItem(int)
-         */
-        public Object getItem(int position) {
-            return position;
-        }
-
-        /**
-         * Use the array index as a unique id.
-         *
-         * @see android.widget.ListAdapter#getItemId(int)
-         */
-        public long getItemId(int position) {
-            return position;
-        }
-
-        /**
-         * Make a view to hold each row.
-         *
-         * @see android.widget.ListAdapter#getView(int, android.view.View,
-         * android.view.ViewGroup)
-         */
-        @TargetApi(Build.VERSION_CODES.GINGERBREAD)
-        public View getView(int pos, View convertView, ViewGroup parent) {
-            // A ViewHolder keeps references to children views to avoid
-            // unnecessary calls
-            // to findViewById() on each row.
-            ViewHolder holder;
-            File file = mFiles[pos];
-            Log.d(TAG, this.getClass().getSimpleName() + "getView: pos=" + pos
-                    + "/" + getCount() + " name=" + file.getName());
-
-            // When convertView is not null, we can reuse it directly, there is
-            // no need to reinflate it. We only inflate a new View when the
-            // convertView
-            // supplied by ListView is null.
-            if (convertView == null) {
-                convertView = mInflater.inflate(R.layout.list_row, null);
-
-                // Creates a ViewHolder and store references to the two children
-                // views
-                // we want to bind data to.
-                holder = new ViewHolder();
-                holder.title = (TextView) convertView.findViewById(R.id.title);
-                holder.subtitle = (TextView) convertView
-                        .findViewById(R.id.subtitle);
-
-                convertView.setTag(holder);
-            } else {
-                // Get the ViewHolder back
-                holder = (ViewHolder) convertView.getTag();
-            }
-            holder.title.setText(file.getName());
-            double size = file.getTotalSpace() / 1024. / 1024.;
-            holder.subtitle.setText(String.format("Size: %0.3f MB", size));
-            return convertView;
-        }
-
-        static class ViewHolder {
-            TextView title;
-            TextView subtitle;
-        }
-
     }
 
 }
