@@ -2,14 +2,12 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 24
-    buildToolsVersion "24.0.0"
-
+    buildToolsVersion '25.0.2'
     defaultConfig {
         applicationId "net.kenevans.android.mapimage"
         minSdkVersion 10
-        targetSdkVersion 21
+        targetSdkVersion 23
     }
-
     buildTypes {
         release {
             minifyEnabled false
@@ -26,6 +24,8 @@ android {
                 }
             }
         }
+    }
+    productFlavors {
     }
 }
 

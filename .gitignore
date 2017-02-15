@@ -6,3 +6,6 @@
 build/
 /captures
 *.iml
+.idea/markdown-navigator.xml
+.idea/markdown-navigator/
+projectFilesBackup/
