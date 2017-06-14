@@ -48,7 +48,7 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
      * Holds the list of files.
      */
     private static File[] mFiles;
-    private List<String> mFileNameList = new ArrayList<String>();
+    private List<String> mFileNameList = new ArrayList<>();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -84,8 +84,8 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
      *
      * @return The image directory.
      */
-    private File getImageDirectory() {
-        SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+    public static File getImageDirectory(Activity activity) {
+        SharedPreferences prefs = activity.getPreferences(MODE_PRIVATE);
         String imageDirName = prefs.getString(PREF_IMAGE_DIRECTORY, null);
         File imageDir = null;
         if (imageDirName != null) {
@@ -95,18 +95,19 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
             if (sdCardRoot != null) {
                 imageDir = new File(sdCardRoot, SD_CARD_MAP_IMAGE_DIRECTORY);
                 // Change the stored value (even if it is null)
-                SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
+                SharedPreferences.Editor editor = activity.getPreferences
+                        (MODE_PRIVATE)
                         .edit();
                 editor.putString(PREF_IMAGE_DIRECTORY, imageDir.getPath());
                 editor.apply();
             }
         }
         if (imageDir == null) {
-            Utils.errMsg(this, "Image directory is null");
+            Utils.errMsg(activity, "Image directory is null");
             return null;
         }
         if (!imageDir.exists()) {
-            Utils.errMsg(this, "Cannot find directory: " + imageDir);
+            Utils.errMsg(activity, "Cannot find directory: " + imageDir);
             return null;
         }
         return imageDir;
@@ -163,10 +164,10 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
         try {
             // Clear the current list
             mFileNameList.clear();
-            File dir = getImageDirectory();
+            File dir = getImageDirectory(this);
             if (dir != null) {
                 File[] files = dir.listFiles();
-                List<File> fileList = new ArrayList<File>();
+                List<File> fileList = new ArrayList<>();
                 for (File file : files) {
                     if (!file.isDirectory()) {
                         String ext = Utils.getExtension(file);
@@ -188,7 +189,7 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
         }
 
         // Set the ListAdapter
-        ArrayAdapter<String> fileList = new ArrayAdapter<String>(this,
+        ArrayAdapter<String> fileList = new ArrayAdapter<>(this,
                 R.layout.row, mFileNameList);
         setListAdapter(fileList);
 

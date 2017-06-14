@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.PointF;
 import android.location.Location;
 import android.location.LocationListener;
@@ -29,6 +30,8 @@ import com.davemorrissey.labs.subscaleview.ImageSource;
 import net.kenevans.android.mapimage.MapCalibration.MapData;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -78,6 +81,9 @@ public class MapImageActivity extends Activity implements IConstants,
         switch (id) {
             case R.id.open:
                 selectFile();
+                return true;
+            case R.id.open_image_location:
+                openImageForLocation();
                 return true;
             case R.id.start_location:
                 if (mUseLocation) {
@@ -353,10 +359,121 @@ public class MapImageActivity extends Activity implements IConstants,
     }
 
     /**
+     * Opens the file that contains the current location
+     */
+    private void openImageForLocation() {
+        if (!mUseLocation) {
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 23
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.ACCESS_COARSE_LOCATION) != PackageManager
+                .PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.ACCESS_FINE_LOCATION) != PackageManager
+                .PERMISSION_GRANTED) {
+            mUseLocation = false;
+            return;
+        }
+
+        // Get the location
+        if (mLocation == null) {
+            Utils.errMsg(this, "No location available");
+            return;
+        }
+        double lon = mLocation.getLongitude();
+        double lat = mLocation.getLatitude();
+
+        // Get the list of files
+        File dir = ImageFileListActivity.getImageDirectory(this);
+        List<File> fileList = null;
+        File[] filesArray = null;
+        try {
+            if (dir != null) {
+                File[] files = dir.listFiles();
+                fileList = new ArrayList<>();
+                for (File file : files) {
+                    if (!file.isDirectory()) {
+                        String ext = Utils.getExtension(file);
+                        if (ext.equals("jpg") || ext.equals("jpeg")
+                                || ext.equals("png") || ext.equals("gif")) {
+                            if (fileContainsLocation(file, lat, lon)) {
+                                fileList.add(file);
+                            }
+                        }
+                    }
+                }
+                Collections.sort(fileList);
+                filesArray = new File[fileList.size()];
+                fileList.toArray(filesArray);
+            }
+        } catch (Exception ex) {
+            Utils.excMsg(this, "Failed to get list of available files", ex);
+            return;
+        }
+        if (filesArray == null || filesArray.length == 0) {
+            return;
+        }
+
+        // Prompt for the file to use
+        final File[] files = filesArray;
+        final CharSequence[] items = new CharSequence[files.length];
+        for (int i = 0; i < files.length; i++) {
+            items[i] = files[i].getName();
+        }
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getText(R.string.open_image_location_title));
+        builder.setSingleChoiceItems(items, 0,
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, final int
+                            item) {
+                        dialog.dismiss();
+                        if (item < 0 || item >= files.length) {
+                            Utils.errMsg(MapImageActivity.this,
+                                    "Invalid item");
+                            return;
+                        }
+                        setNewImage(files[item].getPath());
+                    }
+                });
+        AlertDialog alert = builder.create();
+        alert.show();
+    }
+
+    private boolean fileContainsLocation(File file, double lat, double lon) {
+        // Get the file width and height
+        int dWidth = 0, dHeight = 0;
+        try {
+            Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
+            if (bitmap == null) {
+                return false;
+            }
+            dWidth = bitmap.getWidth();
+            dHeight = bitmap.getHeight();
+        } catch (Exception ex) {
+            return false;
+        }
+        if (dWidth <= 0 || dHeight <= 0) {
+            return false;
+        }
+
+        // Check if the location is within the image
+        try {
+            int[] locationVals = mMapCalibration.inverse(lon, lat);
+            return locationVals != null && !(locationVals[0] < 0 ||
+                    locationVals[0] >= dWidth || locationVals[1] < 0 ||
+                    locationVals[1] >= dHeight);
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+
+    /**
      * Sets a new image from the given filename.
      *
      * @param filePath The path of the file to open.
      */
+
     private void setNewImage(String filePath) {
         if (mImageView == null) {
             return;
@@ -425,6 +542,7 @@ public class MapImageActivity extends Activity implements IConstants,
                 && ContextCompat.checkSelfPermission(this, Manifest
                 .permission.ACCESS_FINE_LOCATION) != PackageManager
                 .PERMISSION_GRANTED) {
+            mUseLocation = false;
             return;
         }
 
@@ -466,6 +584,7 @@ public class MapImageActivity extends Activity implements IConstants,
                 && ContextCompat.checkSelfPermission(this, Manifest
                 .permission.ACCESS_FINE_LOCATION) != PackageManager
                 .PERMISSION_GRANTED) {
+            mUseLocation = false;
             return;
         }
         mLocationManager.removeUpdates(this);
@@ -527,6 +646,7 @@ public class MapImageActivity extends Activity implements IConstants,
                 && ContextCompat.checkSelfPermission(this, Manifest
                 .permission.ACCESS_FINE_LOCATION) != PackageManager
                 .PERMISSION_GRANTED) {
+            mUseLocation = false;
             return;
         }
 
