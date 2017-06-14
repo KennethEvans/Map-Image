@@ -386,12 +386,11 @@ public class MapImageActivity extends Activity implements IConstants,
 
         // Get the list of files
         File dir = ImageFileListActivity.getImageDirectory(this);
-        List<File> fileList = null;
         File[] filesArray = null;
         try {
             if (dir != null) {
                 File[] files = dir.listFiles();
-                fileList = new ArrayList<>();
+                List<File> fileList = new ArrayList<>();
                 for (File file : files) {
                     if (!file.isDirectory()) {
                         String ext = Utils.getExtension(file);
@@ -442,7 +441,7 @@ public class MapImageActivity extends Activity implements IConstants,
 
     private boolean fileContainsLocation(File file, double lat, double lon) {
         // Get the file width and height
-        int dWidth = 0, dHeight = 0;
+        int dWidth, dHeight;
         try {
             Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
             if (bitmap == null) {
@@ -457,9 +456,35 @@ public class MapImageActivity extends Activity implements IConstants,
             return false;
         }
 
+        // See if there is a calibration file
+        MapCalibration mapCalibration = null;
+        String filePath = file.getPath();
+        int i = filePath.lastIndexOf('.');
+        String baseName;
+        if (i > 0) {
+            baseName = filePath.substring(0, i + 1);
+            String calibFileName = baseName + CALIB_EXT;
+            File calibFile = new File(calibFileName);
+            Log.d(TAG,
+                    this.getClass().getSimpleName()
+                            + ".setNewImage: calibFile=" + calibFileName
+                            + (calibFile.exists() ? " exists" : " not found"));
+            if (calibFile.exists()) {
+                mapCalibration = new MapCalibration(this);
+                try {
+                    mapCalibration.read(calibFile);
+                } catch (Exception ex) {
+                    mapCalibration = null;
+                }
+            }
+        }
+        if (mapCalibration == null) {
+            return false;
+        }
+
         // Check if the location is within the image
         try {
-            int[] locationVals = mMapCalibration.inverse(lon, lat);
+            int[] locationVals = mapCalibration.inverse(lon, lat);
             return locationVals != null && !(locationVals[0] < 0 ||
                     locationVals[0] >= dWidth || locationVals[1] < 0 ||
                     locationVals[1] >= dHeight);
