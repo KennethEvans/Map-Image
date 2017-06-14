@@ -24,7 +24,7 @@ package net.kenevans.android.mapimage;
 /**
  * Holds constant values used by several classes in the application.
  */
-public interface IConstants {
+interface IConstants {
     /**
      * Tag to associate with log messages.
      */
@@ -83,9 +83,14 @@ public interface IConstants {
 
     // Messages
     /**
+     * Request code for FINE_LOCATION.
+     */
+    int ACCESS_FINE_LOCATION_REQ = 1;
+
+    /**
      * Request code for displaying an image.
      */
-    int DISPLAY_IMAGE = 0;
+    int DISPLAY_IMAGE_REQ = 0;
     /**
      * Result code for DISPLAY_MESSAGE indicating the previous message.
      */

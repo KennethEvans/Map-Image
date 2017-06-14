@@ -24,11 +24,13 @@ package net.kenevans.android.mapimage;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ListActivity;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Environment;
+import android.preference.PreferenceManager;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -84,8 +86,9 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
      *
      * @return The image directory.
      */
-    public static File getImageDirectory(Activity activity) {
-        SharedPreferences prefs = activity.getPreferences(MODE_PRIVATE);
+    public static File getImageDirectory(Context context) {
+        SharedPreferences prefs = PreferenceManager
+                .getDefaultSharedPreferences(context);
         String imageDirName = prefs.getString(PREF_IMAGE_DIRECTORY, null);
         File imageDir = null;
         if (imageDirName != null) {
@@ -95,19 +98,18 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
             if (sdCardRoot != null) {
                 imageDir = new File(sdCardRoot, SD_CARD_MAP_IMAGE_DIRECTORY);
                 // Change the stored value (even if it is null)
-                SharedPreferences.Editor editor = activity.getPreferences
-                        (MODE_PRIVATE)
-                        .edit();
+                SharedPreferences.Editor editor = PreferenceManager
+                        .getDefaultSharedPreferences(context).edit();
                 editor.putString(PREF_IMAGE_DIRECTORY, imageDir.getPath());
                 editor.apply();
             }
         }
         if (imageDir == null) {
-            Utils.errMsg(activity, "Image directory is null");
+            Utils.errMsg(context, "Image directory is null");
             return null;
         }
         if (!imageDir.exists()) {
-            Utils.errMsg(activity, "Cannot find directory: " + imageDir);
+            Utils.errMsg(context, "Cannot find directory: " + imageDir);
             return null;
         }
         return imageDir;
@@ -124,7 +126,8 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
         // Set an EditText view to get user input
         final EditText input = new EditText(this);
         // Set it with the current value
-        SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        SharedPreferences prefs = PreferenceManager
+                .getDefaultSharedPreferences(this);
         String imageDirName = prefs.getString(PREF_IMAGE_DIRECTORY, null);
         if (imageDirName != null) {
             input.setText(imageDirName);
@@ -137,7 +140,8 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
                 if (value.length() == 0) {
                     value = null;
                 }
-                SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
+                SharedPreferences.Editor editor = PreferenceManager
+                        .getDefaultSharedPreferences(ImageFileListActivity.this)
                         .edit();
                 editor.putString(PREF_IMAGE_DIRECTORY, value);
                 editor.apply();

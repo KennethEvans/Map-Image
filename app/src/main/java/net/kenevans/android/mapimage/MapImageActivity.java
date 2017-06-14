@@ -17,7 +17,10 @@ import android.location.LocationManager;
 import android.location.LocationProvider;
 import android.os.Build;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.provider.Settings;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -126,9 +129,13 @@ public class MapImageActivity extends Activity implements IConstants,
                 + " mUpdateInterval=" + mUpdateInterval);
 
         // Restore the state
-        SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        SharedPreferences prefs = PreferenceManager
+                .getDefaultSharedPreferences(this);
         mUseLocation = prefs.getBoolean(PREF_USE_LOCATION, false);
         mUpdateInterval = prefs.getInt(PREF_UPDATE_INTERVAL, 0);
+        Log.d(TAG, this.getClass().getSimpleName()
+                + ": onResume (After): mUseLocation=" + mUseLocation
+                + " mUpdateInterval=" + mUpdateInterval);
         String fileName = prefs.getString(PREF_FILENAME, null);
         Log.d(TAG, "  fileName=" + fileName);
         if (fileName == null) {
@@ -155,7 +162,8 @@ public class MapImageActivity extends Activity implements IConstants,
                 "mUseLocation="
                 + mUseLocation + " mUpdateInterval=" + mUpdateInterval);
         super.onPause();
-        SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
+        SharedPreferences.Editor editor = PreferenceManager
+                .getDefaultSharedPreferences(this)
                 .edit();
         editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
         if (mImageView != null) {
@@ -165,16 +173,15 @@ public class MapImageActivity extends Activity implements IConstants,
                 editor.putFloat(PREF_CENTER_X, center.x);
                 editor.putFloat(PREF_CENTER_Y, center.y);
                 editor.putFloat(PREF_SCALE, scale);
-                editor.apply();
             }
         }
+        editor.apply();
         disableLocation();
     }
 
     /**
      * Sets a 1x1 Bitmap as the current image.
      */
-
     private void setNoImage() {
         Bitmap.Config conf = Bitmap.Config.ARGB_8888;
         Bitmap bmp = Bitmap.createBitmap(1, 1, conf);
@@ -200,7 +207,8 @@ public class MapImageActivity extends Activity implements IConstants,
         try {
             String info = "";
             // Filename
-            SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+            SharedPreferences prefs = PreferenceManager
+                    .getDefaultSharedPreferences(this);
             String fileName = prefs.getString(PREF_FILENAME, null);
             if (fileName == null) {
                 info += "No file name\n";
@@ -283,11 +291,12 @@ public class MapImageActivity extends Activity implements IConstants,
         Log.d(TAG, this.getClass().getSimpleName()
                 + ".onActivityResult: requestCode=" + requestCode
                 + " resultCode=" + resultCode);
-        if (requestCode == DISPLAY_IMAGE && resultCode == RESULT_OK) {
+        if (requestCode == DISPLAY_IMAGE_REQ && resultCode == RESULT_OK) {
             Bundle extras = intent.getExtras();
             String filePath = extras.getString(OPEN_FILE_PATH);
             // Just set the filePath, setNewImage will be done in onResume
-            SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
+            SharedPreferences.Editor editor = PreferenceManager
+                    .getDefaultSharedPreferences(this)
                     .edit();
             editor.putString(PREF_FILENAME, filePath);
             // Reset the preferences to the defaults
@@ -336,8 +345,9 @@ public class MapImageActivity extends Activity implements IConstants,
                         } else {
                             mUpdateInterval = item;
                         }
-                        SharedPreferences.Editor editor = getPreferences(
-                                MODE_PRIVATE).edit();
+                        SharedPreferences.Editor editor = PreferenceManager
+                                .getDefaultSharedPreferences(MapImageActivity
+                                        .this).edit();
                         editor.putInt(PREF_UPDATE_INTERVAL, mUpdateInterval);
                         editor.apply();
                         // Reset the location
@@ -355,14 +365,18 @@ public class MapImageActivity extends Activity implements IConstants,
     private void selectFile() {
         Intent i = new Intent(this, ImageFileListActivity.class);
         Log.d(TAG, this.getClass().getSimpleName() + ".selectFile");
-        startActivityForResult(i, DISPLAY_IMAGE);
+        startActivityForResult(i, DISPLAY_IMAGE_REQ);
     }
 
     /**
      * Opens the file that contains the current location
      */
     private void openImageForLocation() {
+        Log.d(TAG, this.getClass().getSimpleName() + ": " +
+                "openImageForLocation:" + " mUseLocation=" +
+                mUseLocation);
         if (!mUseLocation) {
+            Utils.errMsg(this, "Not using location. Try Start Location.");
             return;
         }
         if (Build.VERSION.SDK_INT >= 23
@@ -372,7 +386,6 @@ public class MapImageActivity extends Activity implements IConstants,
                 && ContextCompat.checkSelfPermission(this, Manifest
                 .permission.ACCESS_FINE_LOCATION) != PackageManager
                 .PERMISSION_GRANTED) {
-            mUseLocation = false;
             return;
         }
 
@@ -411,6 +424,7 @@ public class MapImageActivity extends Activity implements IConstants,
             return;
         }
         if (filesArray == null || filesArray.length == 0) {
+            Utils.infoMsg(this, "No images contain the current location");
             return;
         }
 
@@ -432,24 +446,51 @@ public class MapImageActivity extends Activity implements IConstants,
                                     "Invalid item");
                             return;
                         }
-                        setNewImage(files[item].getPath());
+                        String filePath = files[item].getPath();
+                        SharedPreferences.Editor editor = PreferenceManager
+                                .getDefaultSharedPreferences(MapImageActivity
+                                        .this)
+                                .edit();
+                        editor.putString(PREF_FILENAME, filePath);
+                        // Reset the preferences to the defaults
+                        editor.putFloat(PREF_CENTER_X, X_DEFAULT);
+                        editor.putFloat(PREF_CENTER_Y, Y_DEFAULT);
+                        editor.putFloat(PREF_SCALE, SCALE_DEFAULT);
+                        editor.apply();
+                        setNewImage(filePath);
+                    }
+                });
+        builder.setNegativeButton("Cancel",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int
+                            whichButton) {
+                        // Do nothing
                     }
                 });
         AlertDialog alert = builder.create();
         alert.show();
     }
 
+    /**
+     * Checks if the current location is within the image in the file.
+     *
+     * @param file The image file.
+     * @param lat  The latitiude.
+     * @param lon  The longitude.
+     * @return If location is within the image.
+     */
     private boolean fileContainsLocation(File file, double lat, double lon) {
         // Get the file width and height
         int dWidth, dHeight;
         try {
-            Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
-            if (bitmap == null) {
-                return false;
-            }
-            dWidth = bitmap.getWidth();
-            dHeight = bitmap.getHeight();
+            // Get the bitmap domensions without loading the Bitmap
+            BitmapFactory.Options bmOptions = new BitmapFactory.Options();
+            bmOptions.inJustDecodeBounds = true;
+            Bitmap bitmap = BitmapFactory.decodeFile(file.getPath(), bmOptions);
+            dWidth = bmOptions.outWidth;
+            dHeight = bmOptions.outHeight;
         } catch (Exception ex) {
+            Utils.excMsg(this, "Error getting Bitmap dimensions", ex);
             return false;
         }
         if (dWidth <= 0 || dHeight <= 0) {
@@ -465,10 +506,6 @@ public class MapImageActivity extends Activity implements IConstants,
             baseName = filePath.substring(0, i + 1);
             String calibFileName = baseName + CALIB_EXT;
             File calibFile = new File(calibFileName);
-            Log.d(TAG,
-                    this.getClass().getSimpleName()
-                            + ".setNewImage: calibFile=" + calibFileName
-                            + (calibFile.exists() ? " exists" : " not found"));
             if (calibFile.exists()) {
                 mapCalibration = new MapCalibration(this);
                 try {
@@ -544,8 +581,24 @@ public class MapImageActivity extends Activity implements IConstants,
         }
     }
 
+    /**
+     * If location is not enabled brings up location settings to turn it on.
+     */
     private void notifyLocationDisabled() {
-        boolean enabled = mLocationManager.isProviderEnabled(mProvider);
+        Log.d(TAG, this.getClass().getSimpleName() + ": " +
+                "notifyLocationDisabled:" + " mUseLocation=" +
+                mUseLocation);
+        if (Build.VERSION.SDK_INT >= 23
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.ACCESS_COARSE_LOCATION) != PackageManager
+                .PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.ACCESS_FINE_LOCATION) != PackageManager
+                .PERMISSION_GRANTED) {
+            return;
+        }
+        boolean enabled = mLocationManager != null && mProvider != null &&
+                mLocationManager.isProviderEnabled(mProvider);
         if (!enabled) {
             Intent intent = new Intent(Settings
                     .ACTION_LOCATION_SOURCE_SETTINGS);
@@ -557,6 +610,9 @@ public class MapImageActivity extends Activity implements IConstants,
      * Initializes location parameters.  Does nothing if not using location.
      */
     private void setupLocation() {
+        Log.d(TAG, this.getClass().getSimpleName() + ": " +
+                "setupLocation:" + " mUseLocation=" +
+                mUseLocation);
         if (!mUseLocation) {
             return;
         }
@@ -567,7 +623,11 @@ public class MapImageActivity extends Activity implements IConstants,
                 && ContextCompat.checkSelfPermission(this, Manifest
                 .permission.ACCESS_FINE_LOCATION) != PackageManager
                 .PERMISSION_GRANTED) {
-            mUseLocation = false;
+            // Don't set mUseLocation = false here
+            // It will be set on onRequestPermissionResult if not allowed
+//            mUseLocation = false;
+
+            requestLocationPermission();
             return;
         }
 
@@ -598,7 +658,20 @@ public class MapImageActivity extends Activity implements IConstants,
                 LOCATION_UPDATE_DISTANCES[mUpdateInterval], this);
     }
 
+    /**
+     * Request permission for FINE_LOCATION and COARSE_LOCATION.  Note there
+     * are two requests. FINE_LOCATION is position 0 and COARSE_LOCATION is
+     * position 1.
+     */
+    private void requestLocationPermission() {
+        ActivityCompat.requestPermissions(this, new String[]{Manifest
+                .permission.ACCESS_FINE_LOCATION}, ACCESS_FINE_LOCATION_REQ);
+    }
+
     private void disableLocation() {
+        Log.d(TAG, this.getClass().getSimpleName() + ": " +
+                "disableLocation:" + " mUseLocation=" +
+                mUseLocation);
         if (!mUseLocation) {
             return;
         }
@@ -609,7 +682,6 @@ public class MapImageActivity extends Activity implements IConstants,
                 && ContextCompat.checkSelfPermission(this, Manifest
                 .permission.ACCESS_FINE_LOCATION) != PackageManager
                 .PERMISSION_GRANTED) {
-            mUseLocation = false;
             return;
         }
         mLocationManager.removeUpdates(this);
@@ -664,6 +736,9 @@ public class MapImageActivity extends Activity implements IConstants,
 
     @Override
     public void onProviderEnabled(String provider) {
+        Log.d(TAG, this.getClass().getSimpleName() + ": " +
+                "onProviderEnabled:" + " mUseLocation=" +
+                mUseLocation);
         if (Build.VERSION.SDK_INT >= 23
                 && ContextCompat.checkSelfPermission(this, Manifest
                 .permission.ACCESS_COARSE_LOCATION) != PackageManager
@@ -671,7 +746,6 @@ public class MapImageActivity extends Activity implements IConstants,
                 && ContextCompat.checkSelfPermission(this, Manifest
                 .permission.ACCESS_FINE_LOCATION) != PackageManager
                 .PERMISSION_GRANTED) {
-            mUseLocation = false;
             return;
         }
 
@@ -689,6 +763,38 @@ public class MapImageActivity extends Activity implements IConstants,
         // Log.d(TAG, this.getClass().getSimpleName() + ": onProviderDisabled");
         mImageView.setLocation(null);
         mImageView.invalidate();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[]
+            permissions, @NonNull int[] grantResults) {
+        Log.d(TAG, this.getClass().getSimpleName() + ": " +
+                "onRequestPermissionsResult:" + " permissions=" +
+                permissions[0]
+                + "\ngrantResults=" + grantResults[0]
+                + "\nmUseLocation=" + mUseLocation);
+        switch (requestCode) {
+            case ACCESS_FINE_LOCATION_REQ:
+                // FINE_LOCATION
+                if (grantResults.length > 0 && grantResults[0] ==
+                        PackageManager.PERMISSION_GRANTED) {
+                    Log.d(TAG, "FINE_LOCATION granted");
+                    if (mUseLocation) {
+                        setupLocation();
+                    }
+                } else if (grantResults.length > 0 && grantResults[0] ==
+                        PackageManager.PERMISSION_DENIED) {
+                    Log.d(TAG, "FINE_LOCATION denied");
+                    mUseLocation = false;
+                    // Save this as onResume will be called next, not onPause
+                    SharedPreferences.Editor editor = PreferenceManager
+                            .getDefaultSharedPreferences(this)
+                            .edit();
+                    editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
+                    editor.apply();
+                }
+                break;
+        }
     }
 
 }
