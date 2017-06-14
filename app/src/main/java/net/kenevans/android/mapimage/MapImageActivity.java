@@ -1,19 +1,23 @@
 package net.kenevans.android.mapimage;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.PointF;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.location.LocationProvider;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.support.v4.content.ContextCompat;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Menu;
@@ -414,6 +418,16 @@ public class MapImageActivity extends Activity implements IConstants,
         if (!mUseLocation) {
             return;
         }
+        if (Build.VERSION.SDK_INT >= 23
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.ACCESS_COARSE_LOCATION) != PackageManager
+                .PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.ACCESS_FINE_LOCATION) != PackageManager
+                .PERMISSION_GRANTED) {
+            return;
+        }
+
         // Get the location manager
         mLocationManager = (LocationManager) getSystemService(Context
                 .LOCATION_SERVICE);
@@ -443,6 +457,15 @@ public class MapImageActivity extends Activity implements IConstants,
 
     private void disableLocation() {
         if (!mUseLocation) {
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 23
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.ACCESS_COARSE_LOCATION) != PackageManager
+                .PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.ACCESS_FINE_LOCATION) != PackageManager
+                .PERMISSION_GRANTED) {
             return;
         }
         mLocationManager.removeUpdates(this);
@@ -497,8 +520,15 @@ public class MapImageActivity extends Activity implements IConstants,
 
     @Override
     public void onProviderEnabled(String provider) {
-        // Log.d(TAG, this.getClass().getSimpleName() +
-        // ": onProviderEnabled: ");
+        if (Build.VERSION.SDK_INT >= 23
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.ACCESS_COARSE_LOCATION) != PackageManager
+                .PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.ACCESS_FINE_LOCATION) != PackageManager
+                .PERMISSION_GRANTED) {
+            return;
+        }
 
         // Get the last known location and set it
         if (mProvider != null && mLocationManager != null
