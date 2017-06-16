@@ -45,6 +45,11 @@ public class MapImageActivity extends Activity implements IConstants,
     private LocationManager mLocationManager;
     private String mProvider;
     private boolean mUseLocation = false;
+    /**
+     * Flag to show whether to prompt for READ_EXTERNAL_STORAGE permission if
+     * it has not been granted.
+     */
+    private boolean mPromptForReadExternalStorage = true;
     private MapCalibration mMapCalibration;
     private CharSequence[] mUpdateIntervals;
     private int mUpdateInterval = 0;
@@ -89,6 +94,14 @@ public class MapImageActivity extends Activity implements IConstants,
                 openImageForLocation();
                 return true;
             case R.id.start_location:
+                if (Build.VERSION.SDK_INT >= 23
+                        && ContextCompat.checkSelfPermission(this, Manifest
+                        .permission.READ_EXTERNAL_STORAGE) != PackageManager
+                        .PERMISSION_GRANTED) {
+                    Utils.warnMsg(this, "Location cannot be started if there" +
+                            " is no permission for READ_EXTERNAL_STORAGE");
+                    return true;
+                }
                 if (mUseLocation) {
                     Utils.warnMsg(this, "Location is already started");
                     return true;
@@ -126,7 +139,9 @@ public class MapImageActivity extends Activity implements IConstants,
         super.onResume();
         Log.d(TAG, this.getClass().getSimpleName()
                 + ": onResume: mUseLocation=" + mUseLocation
-                + " mUpdateInterval=" + mUpdateInterval);
+                + " mUpdateInterval=" + mUpdateInterval
+                + "\nmPromptForReadExternalStorage="
+                + mPromptForReadExternalStorage);
 
         // Restore the state
         SharedPreferences prefs = PreferenceManager
@@ -134,10 +149,28 @@ public class MapImageActivity extends Activity implements IConstants,
         mUseLocation = prefs.getBoolean(PREF_USE_LOCATION, false);
         mUpdateInterval = prefs.getInt(PREF_UPDATE_INTERVAL, 0);
         Log.d(TAG, this.getClass().getSimpleName()
-                + ": onResume (After): mUseLocation=" + mUseLocation
-                + " mUpdateInterval=" + mUpdateInterval);
+                + ": onResume (1): mUseLocation=" + mUseLocation
+                + " mUpdateInterval=" + mUpdateInterval
+                + "\nmPromptForReadExternalStorage="
+                + mPromptForReadExternalStorage);
         String fileName = prefs.getString(PREF_FILENAME, null);
         Log.d(TAG, "  fileName=" + fileName);
+        if (Build.VERSION.SDK_INT >= 23
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.READ_EXTERNAL_STORAGE) != PackageManager
+                .PERMISSION_GRANTED) {
+            if (mPromptForReadExternalStorage) {
+                requestReadExternalStoragePermission();
+            }
+            mMapCalibration = null;
+            setNoImage();
+            return;
+        }
+        Log.d(TAG, this.getClass().getSimpleName()
+                + ": onResume (3): mUseLocation=" + mUseLocation
+                + " mUpdateInterval=" + mUpdateInterval
+                + "\nmPromptForReadExternalStorage="
+                + mPromptForReadExternalStorage);
         if (fileName == null) {
             mMapCalibration = null;
             setNoImage();
@@ -183,6 +216,9 @@ public class MapImageActivity extends Activity implements IConstants,
      * Sets a 1x1 Bitmap as the current image.
      */
     private void setNoImage() {
+        if (mImageView == null) {
+            return;
+        }
         Bitmap.Config conf = Bitmap.Config.ARGB_8888;
         Bitmap bmp = Bitmap.createBitmap(1, 1, conf);
         mImageView.setImage(ImageSource.bitmap(bmp));
@@ -277,6 +313,21 @@ public class MapImageActivity extends Activity implements IConstants,
                     }
                 }
             }
+            if (Build.VERSION.SDK_INT >= 23
+                    && ContextCompat.checkSelfPermission(this, Manifest
+                    .permission.READ_EXTERNAL_STORAGE) != PackageManager
+                    .PERMISSION_GRANTED) {
+                info += "No permission granted for READ_EXTERNAL_STORAGE";
+            }
+            if (Build.VERSION.SDK_INT >= 23
+                    && ContextCompat.checkSelfPermission(this, Manifest
+                    .permission.ACCESS_COARSE_LOCATION) != PackageManager
+                    .PERMISSION_GRANTED
+                    && ContextCompat.checkSelfPermission(this, Manifest
+                    .permission.ACCESS_FINE_LOCATION) != PackageManager
+                    .PERMISSION_GRANTED) {
+                info += "No permission granted for ACCESS_FINE_LOCATION";
+            }
             Utils.infoMsg(this, info);
         } catch (Throwable t) {
             Utils.excMsg(this, "Error showing info", t);
@@ -363,8 +414,25 @@ public class MapImageActivity extends Activity implements IConstants,
      * Brings up a list of files to open.
      */
     private void selectFile() {
+        if (Build.VERSION.SDK_INT >= 23
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.READ_EXTERNAL_STORAGE) != PackageManager
+                .PERMISSION_GRANTED) {
+            if (mPromptForReadExternalStorage) {
+                requestReadExternalStoragePermission();
+            } else {
+                Utils.errMsg(this, "No permission granted for " +
+                        "READ_EXTERNAL_STORAGE." +
+                        "\nTo continue restart app and allow or set " +
+                        "permission manually in the Application Manager."
+                );
+            }
+            return;
+        }
         Intent i = new Intent(this, ImageFileListActivity.class);
-        Log.d(TAG, this.getClass().getSimpleName() + ".selectFile");
+        Log.d(TAG, this.
+                getClass().
+                getSimpleName() + ".selectFile");
         startActivityForResult(i, DISPLAY_IMAGE_REQ);
     }
 
@@ -375,6 +443,21 @@ public class MapImageActivity extends Activity implements IConstants,
         Log.d(TAG, this.getClass().getSimpleName() + ": " +
                 "openImageForLocation:" + " mUseLocation=" +
                 mUseLocation);
+        if (Build.VERSION.SDK_INT >= 23
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.READ_EXTERNAL_STORAGE) != PackageManager
+                .PERMISSION_GRANTED) {
+            if (mPromptForReadExternalStorage) {
+                requestReadExternalStoragePermission();
+            } else {
+                Utils.errMsg(this, "No permission granted for " +
+                        "READ_EXTERNAL_STORAGE." +
+                        "\nTo continue restart app and allow or set " +
+                        "permission manually in the Application Manager."
+                );
+            }
+            return;
+        }
         if (!mUseLocation) {
             Utils.errMsg(this, "Not using location. Try Start Location.");
             return;
@@ -537,6 +620,21 @@ public class MapImageActivity extends Activity implements IConstants,
      */
 
     private void setNewImage(String filePath) {
+        if (Build.VERSION.SDK_INT >= 23
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.READ_EXTERNAL_STORAGE) != PackageManager
+                .PERMISSION_GRANTED) {
+            if (mPromptForReadExternalStorage) {
+                requestReadExternalStoragePermission();
+            } else {
+                Utils.errMsg(this, "No permission granted for " +
+                        "READ_EXTERNAL_STORAGE." +
+                        "\nTo continue restart app and allow or set " +
+                        "permission manually in the Application Manager."
+                );
+            }
+            return;
+        }
         if (mImageView == null) {
             return;
         }
@@ -613,6 +711,14 @@ public class MapImageActivity extends Activity implements IConstants,
         Log.d(TAG, this.getClass().getSimpleName() + ": " +
                 "setupLocation:" + " mUseLocation=" +
                 mUseLocation);
+        // Do not set up location if there is no permission for
+        // READ_EXTERNAL_STORAGE since there will be no map anyway
+        if (Build.VERSION.SDK_INT >= 23
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.READ_EXTERNAL_STORAGE) != PackageManager
+                .PERMISSION_GRANTED) {
+            return;
+        }
         if (!mUseLocation) {
             return;
         }
@@ -659,13 +765,22 @@ public class MapImageActivity extends Activity implements IConstants,
     }
 
     /**
-     * Request permission for FINE_LOCATION and COARSE_LOCATION.  Note there
-     * are two requests. FINE_LOCATION is position 0 and COARSE_LOCATION is
-     * position 1.
+     * Request permission for FINE_LOCATION.
      */
     private void requestLocationPermission() {
         ActivityCompat.requestPermissions(this, new String[]{Manifest
                 .permission.ACCESS_FINE_LOCATION}, ACCESS_FINE_LOCATION_REQ);
+    }
+
+    /**
+     * Request permission for READ_EXTERNAL_STORAGE.
+     */
+    private void requestReadExternalStoragePermission() {
+        // This is not available before API 16
+        if (Build.VERSION.SDK_INT < 16) return;
+        ActivityCompat.requestPermissions(this, new String[]{Manifest
+                        .permission.READ_EXTERNAL_STORAGE},
+                ACCESS_READ_EXTERNAL_STORAGE_REQ);
     }
 
     private void disableLocation() {
@@ -684,23 +799,19 @@ public class MapImageActivity extends Activity implements IConstants,
                 .PERMISSION_GRANTED) {
             return;
         }
-        mLocationManager.removeUpdates(this);
-        mLocationManager = null;
+        if (mLocationManager != null) {
+            mLocationManager.removeUpdates(this);
+            mLocationManager = null;
+        }
         mProvider = null;
         mLocation = null;
-        mImageView.setLocation(null);
+        if (mImageView != null) mImageView.setLocation(null);
     }
 
     @Override
     public void onLocationChanged(Location location) {
-//        Log.d(TAG, this.getClass().getSimpleName() + ": onLocationChanged: "
-//                + location.getLongitude() + ", " + location.getLatitude());
-
-//        // DEBUG
-//        Toast.makeText(
-//                this,
-//                String.format("Location %.6f %.6f", location.getLongitude(),
-//                        location.getLatitude()), Toast.LENGTH_SHORT).show();
+        Log.d(TAG, this.getClass().getSimpleName() + ": onLocationChanged: "
+                + location.getLongitude() + ", " + location.getLatitude());
         mLocation = location;
         if (mLocation == null) {
             return;
@@ -760,7 +871,7 @@ public class MapImageActivity extends Activity implements IConstants,
 
     @Override
     public void onProviderDisabled(String provider) {
-        // Log.d(TAG, this.getClass().getSimpleName() + ": onProviderDisabled");
+        Log.d(TAG, this.getClass().getSimpleName() + ": onProviderDisabled");
         mImageView.setLocation(null);
         mImageView.invalidate();
     }
@@ -772,7 +883,9 @@ public class MapImageActivity extends Activity implements IConstants,
                 "onRequestPermissionsResult:" + " permissions=" +
                 permissions[0]
                 + "\ngrantResults=" + grantResults[0]
-                + "\nmUseLocation=" + mUseLocation);
+                + "\nmUseLocation=" + mUseLocation
+                + "\nmPromptForReadExternalStorage="
+                + mPromptForReadExternalStorage);
         switch (requestCode) {
             case ACCESS_FINE_LOCATION_REQ:
                 // FINE_LOCATION
@@ -792,6 +905,18 @@ public class MapImageActivity extends Activity implements IConstants,
                             .edit();
                     editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
                     editor.apply();
+                }
+                break;
+            case ACCESS_READ_EXTERNAL_STORAGE_REQ:
+                // FINE_LOCATION
+                if (grantResults.length > 0 && grantResults[0] ==
+                        PackageManager.PERMISSION_GRANTED) {
+                    Log.d(TAG, "READ_EXTERNAL_STORAGEN granted");
+                    mPromptForReadExternalStorage = true;
+                } else if (grantResults.length > 0 && grantResults[0] ==
+                        PackageManager.PERMISSION_DENIED) {
+                    Log.d(TAG, "READ_EXTERNAL_STORAGE denied");
+                    mPromptForReadExternalStorage = false;
                 }
                 break;
         }

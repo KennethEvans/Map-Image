@@ -13,6 +13,10 @@
 <p align="left">You may zoom the image out using two fingers and pan using one or two fingers. Double tap toggles zooming in and restoring to the default size.</p>
 <p align="left">If the double tap is performed so the second tap is held down and moved, then instead of restoring to the original size, you can continue to zoom in and out about that point with the one finger as long as it is held down. This is similar to a feature of Google Maps. </p>
 <p align="left">The app remembers the image and the last zoom and pan values when it exits, so that it should come back to where you left it when it resumes. It also remembers if location was being used. </p>
+<h3 align="left">Permissions</h3>
+<p align="left">As of Andoid 6.0 (API 23, Marshmallow), permissions requested by an application do not have to be accepted on installation. They can be added or revoked at any time by the user. The application must check whether it has the permissions every time it needs them. Map Image requires permission for FINE_LOCATION in order to use location. It will prompt for this if not granted, or you may change it yourself in the system-wide Application Manager. Map Image will still run and show the maps even if this permission is not granted, but it will not show the current location.</p>
+<p align="left">Map Image also requires permission for READ_EXTERNAL_STORAGE. You should always grant this as the purpose of Map Image requires reading user-supplied files. In the event you do not, you will be prompted once every time Map Image is started, unless you ask to receive no more prompts. Location is disabled when there is no permission for READ_EXTERNAL_STORAGE.</p>
+<p align="left">If you have asked to get no more prompts and you now want to change the permissions, do it manually in the system-wide Application Manager.</p>
 <h3 align="left"><a name="calibration" id="calibration"></a>Calibration</h3>
 <p align="left">The calibration is specified in a text file with lines of the form:</p>
 <p align="left"> integer x, white space, integer y, white space, decimal longitude, white space, decimal latitude.</p>
@@ -33,6 +37,8 @@
 <h3 align="left">Menu Items </h3>
 <h4>New Image </h4>
 <p>Allows you to pick a new image among those in the image directory. </p>
+<h4>Image from Location</h4>
+<p>Checks all the installed images to see if thewy include the current location and allows you to select one. </p>
 <h4>Start Location </h4>
 <p>Start using location. Starting and stopping location allow you to save battery if desired. The cursor only shows if you are using location and there is a valid location. You do not have to turn off location before exiting. It is turned off when the app exits, and it is restored to what it was before when the app resumes. </p>
 <h4>Stop Location </h4>

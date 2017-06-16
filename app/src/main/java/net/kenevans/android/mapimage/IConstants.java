@@ -88,6 +88,11 @@ interface IConstants {
     int ACCESS_FINE_LOCATION_REQ = 1;
 
     /**
+     * Request code for READ_EXTERNAL_STORAGE.
+     */
+    int ACCESS_READ_EXTERNAL_STORAGE_REQ = 2;
+
+    /**
      * Request code for displaying an image.
      */
     int DISPLAY_IMAGE_REQ = 0;
