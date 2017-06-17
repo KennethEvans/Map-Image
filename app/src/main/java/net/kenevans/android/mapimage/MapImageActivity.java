@@ -317,7 +317,7 @@ public class MapImageActivity extends Activity implements IConstants,
                     && ContextCompat.checkSelfPermission(this, Manifest
                     .permission.READ_EXTERNAL_STORAGE) != PackageManager
                     .PERMISSION_GRANTED) {
-                info += "No permission granted for READ_EXTERNAL_STORAGE";
+                info += "No permission granted for READ_EXTERNAL_STORAGE\n";
             }
             if (Build.VERSION.SDK_INT >= 23
                     && ContextCompat.checkSelfPermission(this, Manifest
@@ -326,7 +326,7 @@ public class MapImageActivity extends Activity implements IConstants,
                     && ContextCompat.checkSelfPermission(this, Manifest
                     .permission.ACCESS_FINE_LOCATION) != PackageManager
                     .PERMISSION_GRANTED) {
-                info += "No permission granted for ACCESS_FINE_LOCATION";
+                info += "No permission granted for ACCESS_FINE_LOCATION\n";
             }
             Utils.infoMsg(this, info);
         } catch (Throwable t) {
@@ -810,8 +810,8 @@ public class MapImageActivity extends Activity implements IConstants,
 
     @Override
     public void onLocationChanged(Location location) {
-        Log.d(TAG, this.getClass().getSimpleName() + ": onLocationChanged: "
-                + location.getLongitude() + ", " + location.getLatitude());
+//        Log.d(TAG, this.getClass().getSimpleName() + ": onLocationChanged: "
+//                + location.getLongitude() + ", " + location.getLatitude());
         mLocation = location;
         if (mLocation == null) {
             return;
@@ -911,12 +911,19 @@ public class MapImageActivity extends Activity implements IConstants,
                 // FINE_LOCATION
                 if (grantResults.length > 0 && grantResults[0] ==
                         PackageManager.PERMISSION_GRANTED) {
-                    Log.d(TAG, "READ_EXTERNAL_STORAGEN granted");
+                    Log.d(TAG, "READ_EXTERNAL_STORAGE granted");
                     mPromptForReadExternalStorage = true;
                 } else if (grantResults.length > 0 && grantResults[0] ==
                         PackageManager.PERMISSION_DENIED) {
                     Log.d(TAG, "READ_EXTERNAL_STORAGE denied");
                     mPromptForReadExternalStorage = false;
+                    mUseLocation = false;
+                    // Save this as onResume will be called next, not onPause
+                    SharedPreferences.Editor editor = PreferenceManager
+                            .getDefaultSharedPreferences(this)
+                            .edit();
+                    editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
+                    editor.apply();
                 }
                 break;
         }
