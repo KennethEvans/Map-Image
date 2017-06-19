@@ -1,12 +1,15 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 24
-    buildToolsVersion '25.0.2'
+    compileSdkVersion 26
+    buildToolsVersion '26.0.0'
     defaultConfig {
         applicationId "net.kenevans.android.mapimage"
-        minSdkVersion 10
+        minSdkVersion 15
         targetSdkVersion 24
+        versionCode 5
+        versionName "1.4.0"
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
         release {
@@ -30,7 +33,7 @@ android {
 }
 
 dependencies {
-    compile 'com.android.support:support-v4:24.0.0'
     compile files('libs/Jama-1.0.3.jar')
     compile project(':library')
+    compile 'com.android.support:support-v4:26.0.0-alpha1'
 }
