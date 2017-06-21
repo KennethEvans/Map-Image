@@ -1,4 +1,4 @@
-apply plugin: 'android-library'
+apply plugin: 'com.android.library'
 apply plugin: 'maven'
 apply plugin: 'signing'
 
@@ -51,14 +51,13 @@ uploadArchives {
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: '*.jar')
-    compile 'com.android.support:support-annotations:20.0.0'
+    compile fileTree(include: '*.jar', dir: 'libs')
+    compile 'com.android.support:support-annotations:26.0.0-alpha1'
 }
 
 android {
-    compileSdkVersion 19
-    buildToolsVersion '25.0.0'
-
+    compileSdkVersion 21
+    buildToolsVersion '26.0.0'
     sourceSets {
         main {
             manifest.srcFile 'AndroidManifest.xml'
@@ -81,5 +80,11 @@ android {
         // by a similar customization.
         debug.setRoot('build-types/debug')
         release.setRoot('build-types/release')
+    }
+    defaultConfig {
+        minSdkVersion 11
+        targetSdkVersion 21
+    }
+    productFlavors {
     }
 }
