@@ -2,11 +2,9 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 27
-    buildToolsVersion '27.0.3'
+    buildToolsVersion '29.0.0 rc1'
     defaultConfig {
         applicationId "net.kenevans.android.mapimage"
-        minSdkVersion 15
-        targetSdkVersion 27
         versionCode 5
         versionName "1.4.0"
     }
@@ -25,10 +23,14 @@ android {
     }
     productFlavors {
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_6
+    }
 }
 
 dependencies {
     implementation files('libs/Jama-1.0.3.jar')
     implementation project(':library')
-        implementation 'com.android.support:support-v4:27.1.1'
+    implementation 'com.android.support:support-v4:27.1.1'
 }
