@@ -30,7 +30,6 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Environment;
 import android.preference.PreferenceManager;
-import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -44,6 +43,8 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 public class ImageFileListActivity extends AppCompatActivity implements IConstants {
     /**
@@ -195,10 +196,12 @@ public class ImageFileListActivity extends AppCompatActivity implements IConstan
                 for (File file : files) {
                     if (!file.isDirectory()) {
                         String ext = Utils.getExtension(file);
-                        if (ext.equals("jpg") || ext.equals("jpeg")
-                                || ext.equals("png") || ext.equals("gif")) {
+                        if (ext.toLowerCase().equals("jpg")
+                                || ext.toLowerCase().equals("jpeg")
+                                || ext.toLowerCase().equals("png")
+                                || ext.toLowerCase().equals("gif")) {
                             fileList.add(file);
-                            mFileNameList.add(file.getPath());
+                            mFileNameList.add(file.getName());
                         }
                     }
                 }
@@ -226,8 +229,10 @@ public class ImageFileListActivity extends AppCompatActivity implements IConstan
                 }
                 // Create the result Intent and include the fileName
                 Intent intent = new Intent();
-                String path = mFileNameList.get(pos);
-                intent.putExtra(OPEN_FILE_PATH, path);
+                File file =
+                        new File(getImageDirectory(ImageFileListActivity.this),
+                                mFileNameList.get(pos));
+                intent.putExtra(OPEN_FILE_PATH, file.getPath());
 
                 // Set result and finish this Activity
                 setResult(Activity.RESULT_OK, intent);
