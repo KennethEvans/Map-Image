@@ -1,7 +1,6 @@
 package net.kenevans.android.mapimage;
 
 import android.Manifest;
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -22,6 +21,7 @@ import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v7.app.AppCompatActivity;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Menu;
@@ -38,7 +38,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
-public class MapImageActivity extends Activity implements IConstants,
+public class MapImageActivity extends AppCompatActivity implements IConstants,
         LocationListener {
     private MapImageView mImageView;
     private Location mLocation;
@@ -72,7 +72,7 @@ public class MapImageActivity extends Activity implements IConstants,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         setContentView(R.layout.main);
-        mImageView = (MapImageView) findViewById(R.id.imageview);
+        mImageView = findViewById(R.id.imageview);
         mImageView.setMinimumDpi(MIN_DPI);
     }
 
@@ -344,12 +344,17 @@ public class MapImageActivity extends Activity implements IConstants,
                 + " resultCode=" + resultCode);
         if (requestCode == DISPLAY_IMAGE_REQ && resultCode == RESULT_OK) {
             Bundle extras = intent.getExtras();
-            String filePath = extras.getString(OPEN_FILE_PATH);
-            // Just set the filePath, setNewImage will be done in onResume
             SharedPreferences.Editor editor = PreferenceManager
                     .getDefaultSharedPreferences(this)
                     .edit();
-            editor.putString(PREF_FILENAME, filePath);
+            try {
+                String filePath = extras.getString(OPEN_FILE_PATH);
+                // Just set the filePath, setNewImage will be done in onResume
+                editor.putString(PREF_FILENAME, filePath);
+            } catch (NumberFormatException ex) {
+                Utils.excMsg(this, "Did not get file name from Preferences",
+                        ex);
+            }
             // Reset the preferences to the defaults
             editor.putFloat(PREF_CENTER_X, X_DEFAULT);
             editor.putFloat(PREF_CENTER_Y, Y_DEFAULT);
@@ -889,14 +894,12 @@ public class MapImageActivity extends Activity implements IConstants,
         switch (requestCode) {
             case ACCESS_FINE_LOCATION_REQ:
                 // FINE_LOCATION
-                if (grantResults.length > 0 && grantResults[0] ==
-                        PackageManager.PERMISSION_GRANTED) {
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     Log.d(TAG, "FINE_LOCATION granted");
                     if (mUseLocation) {
                         setupLocation();
                     }
-                } else if (grantResults.length > 0 && grantResults[0] ==
-                        PackageManager.PERMISSION_DENIED) {
+                } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
                     Log.d(TAG, "FINE_LOCATION denied");
                     mUseLocation = false;
                     // Save this as onResume will be called next, not onPause
@@ -909,12 +912,10 @@ public class MapImageActivity extends Activity implements IConstants,
                 break;
             case ACCESS_READ_EXTERNAL_STORAGE_REQ:
                 // FINE_LOCATION
-                if (grantResults.length > 0 && grantResults[0] ==
-                        PackageManager.PERMISSION_GRANTED) {
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     Log.d(TAG, "READ_EXTERNAL_STORAGE granted");
                     mPromptForReadExternalStorage = true;
-                } else if (grantResults.length > 0 && grantResults[0] ==
-                        PackageManager.PERMISSION_DENIED) {
+                } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
                     Log.d(TAG, "READ_EXTERNAL_STORAGE denied");
                     mPromptForReadExternalStorage = false;
                     mUseLocation = false;

@@ -2,11 +2,12 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 27
-    buildToolsVersion '29.0.0 rc1'
     defaultConfig {
+        minSdkVersion 14
+        targetSdkVersion 27
         applicationId "net.kenevans.android.mapimage"
-        versionCode 5
-        versionName "1.4.0"
+        versionCode 6
+        versionName "1.5.0"
     }
     buildTypes {
         release {
@@ -23,14 +24,11 @@ android {
     }
     productFlavors {
     }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_6
-    }
 }
 
 dependencies {
     implementation files('libs/Jama-1.0.3.jar')
     implementation project(':library')
     implementation 'com.android.support:support-v4:27.1.1'
+    implementation 'com.android.support:appcompat-v7:27.1.1'
 }

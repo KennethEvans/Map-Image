@@ -56,6 +56,8 @@ dependencies {
 }
 
 android {
+    compileSdkVersion 21
+    buildToolsVersion '28.0.3'
     sourceSets {
         main {
             manifest.srcFile 'AndroidManifest.xml'
@@ -79,12 +81,10 @@ android {
         debug.setRoot('build-types/debug')
         release.setRoot('build-types/release')
     }
+    defaultConfig {
+        minSdkVersion 14
+        targetSdkVersion 21
+    }
     productFlavors {
     }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_6
-    }
-    compileSdkVersion 21
-    buildToolsVersion '29.0.0 rc1'
 }

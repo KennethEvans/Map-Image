@@ -23,7 +23,6 @@ package net.kenevans.android.mapimage;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.ListActivity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -31,11 +30,12 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Environment;
 import android.preference.PreferenceManager;
+import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ListView;
@@ -45,16 +45,20 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class ImageFileListActivity extends ListActivity implements IConstants {
+public class ImageFileListActivity extends AppCompatActivity implements IConstants {
     /**
      * Holds the list of files.
      */
     private static File[] mFiles;
     private List<String> mFileNameList = new ArrayList<>();
+    private ListView mListView;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        Log.d(TAG, this.getClass().getSimpleName() + ": onCreate");
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.list_view);
+        mListView = findViewById(R.id.mainListView);
 
         // Set result CANCELED in case the user backs out
         setResult(Activity.RESULT_CANCELED);
@@ -160,10 +164,26 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
         alert.show();
     }
 
+    public void onListItemClick(ListView lv, View view, int position, long id) {
+        if (position < 0 || position >= mFiles.length) {
+            return;
+        }
+        // Create the result Intent and include the fileName
+        Intent intent = new Intent();
+        String path = mFileNameList.get(position);
+        intent.putExtra(OPEN_FILE_PATH, path);
+
+        // Set result and finish this Activity
+        setResult(Activity.RESULT_OK, intent);
+        finish();
+    }
+
     /**
      * Resets the file list.
      */
     private void reset() {
+        Log.d(TAG, this.getClass().getSimpleName() + ": reset: "
+                + "mListView=" + mListView);
         // Get the available image files
         try {
             // Clear the current list
@@ -195,10 +215,9 @@ public class ImageFileListActivity extends ListActivity implements IConstants {
         // Set the ListAdapter
         ArrayAdapter<String> fileList = new ArrayAdapter<>(this,
                 R.layout.row, mFileNameList);
-        setListAdapter(fileList);
+        mListView.setAdapter(fileList);
 
-        ListView lv = getListView();
-        lv.setOnItemClickListener(new OnItemClickListener() {
+        mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int pos,
                                     long id) {
