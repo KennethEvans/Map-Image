@@ -2,7 +2,7 @@
       xmlns:app="http://schemas.android.com/apk/res-auto">
     <item android:id="@+id/open"
           android:title="@string/open_item"
-          android:icon="@drawable/ic_folder_black_36dp"
+          android:icon="@drawable/ic_swap_horizontal_circle_black_36dp"
           app:showAsAction="ifRoom" />
     <item android:id="@+id/open_image_location"
           android:title="@string/open_image_location_item" />
