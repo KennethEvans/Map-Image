@@ -172,7 +172,7 @@ public class ImageFileListActivity extends AppCompatActivity implements IConstan
         // Create the result Intent and include the fileName
         Intent intent = new Intent();
         String path = mFileNameList.get(position);
-        intent.putExtra(OPEN_FILE_PATH, path);
+        intent.putExtra(EXTRA_OPEN_FILE_PATH, path);
 
         // Set result and finish this Activity
         setResult(Activity.RESULT_OK, intent);
@@ -232,7 +232,7 @@ public class ImageFileListActivity extends AppCompatActivity implements IConstan
                 File file =
                         new File(getImageDirectory(ImageFileListActivity.this),
                                 mFileNameList.get(pos));
-                intent.putExtra(OPEN_FILE_PATH, file.getPath());
+                intent.putExtra(EXTRA_OPEN_FILE_PATH, file.getPath());
 
                 // Set result and finish this Activity
                 setResult(Activity.RESULT_OK, intent);

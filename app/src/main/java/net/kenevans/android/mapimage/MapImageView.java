@@ -74,23 +74,6 @@ public class MapImageView extends SubsamplingScaleImageView implements
 //        float density = getResources().getDisplayMetrics().densityDpi;
         mLocationCursor = BitmapFactory.decodeResource(this.getResources(), R
                 .drawable.location);
-        // Create the location cursor
-//        float w = (density / 420f) * mLocationCursor.getWidth();
-//        float h = (density / 420f) * mLocationCursor.getHeight();
-//        float w = mLocationCursor.getWidth();
-//        float h = mLocationCursor.getHeight();
-//        mLocationCursor = Bitmap.createScaledBitmap(mLocationCursor, (int)
-// w, (int) h, true);
-
-//        // Create the cursor bitmap
-//        int size = 15;
-//        mLocationCursor = Bitmap.createBitmap(size, size, Bitmap.Config
-// .ARGB_8888);
-//        Paint paint = new Paint();
-//        paint.setAntiAlias(true);
-//        paint.setColor(0xFFFF0000);
-//        Canvas canvas = new Canvas(mLocationCursor);
-//        canvas.drawCircle(size / 2, size / 2, size / 2, paint);
     }
 
     public void setLocation(PointF locationPoint) {

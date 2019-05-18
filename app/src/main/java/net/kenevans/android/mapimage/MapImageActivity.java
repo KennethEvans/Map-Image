@@ -2,26 +2,25 @@ package net.kenevans.android.mapimage;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.PointF;
 import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
 import android.location.LocationProvider;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
-import androidx.annotation.NonNull;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.appcompat.app.AppCompatActivity;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Menu;
@@ -38,13 +37,19 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
-public class MapImageActivity extends AppCompatActivity implements IConstants,
-        LocationListener {
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+public class MapImageActivity extends AppCompatActivity implements IConstants {
     private MapImageView mImageView;
+    /**
+     * Location, used for lat, lon, Accuracy only.
+     */
     private Location mLocation;
-    private LocationManager mLocationManager;
-    private String mProvider;
     private boolean mUseLocation = false;
+    private MapImageLocationService mLocationService;
     /**
      * Flag to show whether to prompt for READ_EXTERNAL_STORAGE permission if
      * it has not been granted.
@@ -54,6 +59,91 @@ public class MapImageActivity extends AppCompatActivity implements IConstants,
     private CharSequence[] mUpdateIntervals;
     private int mUpdateInterval = 0;
 
+    /**
+     * Manages the service lifecycle.
+     */
+    private final ServiceConnection mServiceConnection = new
+            ServiceConnection() {
+                @Override
+                public void onServiceConnected(ComponentName componentName,
+                                               IBinder service) {
+                    Log.d(TAG, "onServiceConnected: ");
+                    mLocationService = ((MapImageLocationService.LocalBinder)
+                            service).getService();
+//                    if (mDbAdapter != null) {
+//                        mBLECardiacBleService.startDatabase(mDbAdapter);
+//                    }
+                    // Automatically connects to the device upon successful
+                    // start-up
+                    // initialization.
+//                    SharedPreferences prefs = PreferenceManager
+//                            .getDefaultSharedPreferences
+//                                    (DeviceMonitorActivity.this);
+//                    boolean manuallyDisconnected = prefs.getBoolean(
+//                            PREF_MANUALLY_DISCONNECTED, false);
+//                    if (!manuallyDisconnected) {
+//                        boolean res = mBLECardiacBleService.connect
+//                                (mDeviceAddress);
+//                        Log.d(TAG, "Connect mBLECardiacBleService result=" +
+//                                res);
+//                        if (res) {
+//                            setManuallyDisconnected(false);
+//                        }
+//                    }
+                }
+
+                @Override
+                public void onServiceDisconnected(ComponentName componentName) {
+                    Log.d(TAG, "onServiceDisconnected");
+                    mLocationService = null;
+                }
+            };
+
+    /**
+     * Handles various events fired by the Service.
+     */
+    private final BroadcastReceiver mBroadcastReceiver = new
+            BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    final String action = intent.getAction();
+                    if (ACTION_LOCATION_CHANGED.equals(action)) {
+                        if (mMapCalibration != null && mMapCalibration.getTransform() != null) {
+                            if (mLocation == null) {
+                                mLocation = new Location("");
+                            }
+                            mLocation.setLatitude(intent.getDoubleExtra(EXTRA_LAT, 0.));
+                            mLocation.setLongitude(intent.getDoubleExtra(EXTRA_LON, 0.));
+                            mLocation.setAccuracy(intent.getFloatExtra(EXTRA_ACCURACY, 0));
+                            int[] locationVals =
+                                    mMapCalibration.inverse(mLocation.getLongitude(),
+                                            mLocation.getLatitude());
+                            if (locationVals == null) {
+                                Log.d(TAG, this.getClass().getSimpleName()
+                                        + "  locationVals  is null");
+                                return;
+                            }
+                            PointF locationPoint = new PointF(locationVals[0]
+                                    , locationVals[1]);
+                            mImageView.setLocation(locationPoint);
+                        } else {
+                            Log.d(TAG, this.getClass().getSimpleName()
+                                    + ": onLocationChanged: transform is null");
+                        }
+//                    } else if (ACTION_PROVIDER_ENABLED.equals(action)) {
+                    } else if (ACTION_PROVIDER_DISABLED.equals(action)) {
+                        mImageView.setLocation(null);
+                        mImageView.invalidate();
+                    } else if (ACTION_STATUS_CHANGED.equals(action)) {
+                        int status = intent.getIntExtra(EXTRA_STATUS, 0);
+                        if (status == LocationProvider.OUT_OF_SERVICE) {
+                            mImageView.setLocation(null);
+                        }
+//                    } else if (ACTION_ERROR.equals(action)) {
+                    }
+                }
+            };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, this.getClass().getSimpleName() + ": onCreate");
@@ -62,7 +152,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants,
         // Create update intervals here so getText is available
         mUpdateIntervals = new CharSequence[]{
                 getText(R.string.update_fastest),
-                getText(R.string.update_fast), getText(R.string.update_slow),};
+                getText(R.string.update_fast), getText(R.string.update_slow),
+        };
 
         // // Remove title bar (Call before setContentView)
         // this.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -74,6 +165,108 @@ public class MapImageActivity extends AppCompatActivity implements IConstants,
         setContentView(R.layout.main);
         mImageView = findViewById(R.id.imageview);
         mImageView.setMinimumDpi(MIN_DPI);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Log.d(TAG, this.getClass().getSimpleName()
+                + ": onResume: mUseLocation=" + mUseLocation
+                + " mUpdateInterval=" + mUpdateInterval
+                + "\nmPromptForReadExternalStorage="
+                + mPromptForReadExternalStorage);
+
+        // Restore the state
+        SharedPreferences prefs = PreferenceManager
+                .getDefaultSharedPreferences(this);
+        mUseLocation = prefs.getBoolean(PREF_USE_LOCATION, false);
+        mUpdateInterval = prefs.getInt(PREF_UPDATE_INTERVAL, 0);
+        Log.d(TAG, this.getClass().getSimpleName()
+                + ": onResume (1): mUseLocation=" + mUseLocation
+                + " mUpdateInterval=" + mUpdateInterval
+                + "\nmPromptForReadExternalStorage="
+                + mPromptForReadExternalStorage);
+        String fileName = prefs.getString(PREF_FILENAME, null);
+        Log.d(TAG, "  fileName=" + fileName);
+        // Check READ_EXTERNAL_STORAGE
+        if (Build.VERSION.SDK_INT >= 23
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.READ_EXTERNAL_STORAGE) != PackageManager
+                .PERMISSION_GRANTED) {
+            if (mPromptForReadExternalStorage) {
+                requestReadExternalStoragePermission();
+            }
+            Log.d(TAG, this.getClass().getSimpleName()
+                    + ": onResume (2): mPromptForReadExternalStorage="
+                    + mPromptForReadExternalStorage);
+            mMapCalibration = null;
+            setNoImage();
+            return;
+        }
+        Log.d(TAG, this.getClass().getSimpleName()
+                + ": onResume (3): mUseLocation=" + mUseLocation
+                + " mUpdateInterval=" + mUpdateInterval
+                + "\nmPromptForReadExternalStorage="
+                + mPromptForReadExternalStorage);
+        if (fileName == null) {
+            mMapCalibration = null;
+            setNoImage();
+        } else {
+            if (mImageView != null) {
+                setNewImage(fileName);
+                float x = prefs.getFloat(PREF_CENTER_X, X_DEFAULT);
+                float y = prefs.getFloat(PREF_CENTER_Y, Y_DEFAULT);
+                float scale = prefs.getFloat(PREF_SCALE, SCALE_DEFAULT);
+                if (scale != SCALE_DEFAULT || x != X_DEFAULT || y !=
+                        Y_DEFAULT) {
+                    mImageView.setScaleAndCenter(scale, new PointF(x, y));
+                }
+            }
+            // Start the service if it is not started
+            if (mUseLocation && mLocationService == null) {
+                bindService(new Intent(this, MapImageLocationService.class),
+                        mServiceConnection, BIND_AUTO_CREATE);
+            }
+            registerReceiver(mBroadcastReceiver, makeBroadcastIntentFilter());
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        Log.d(TAG, this.getClass().getSimpleName() + ": onPause: " +
+                "mUseLocation="
+                + mUseLocation + " mUpdateInterval=" + mUpdateInterval);
+        super.onPause();
+        SharedPreferences.Editor editor = PreferenceManager
+                .getDefaultSharedPreferences(this)
+                .edit();
+        editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
+        if (mImageView != null) {
+            PointF center = mImageView.getCenter();
+            float scale = mImageView.getScale();
+            if (center != null) {
+                editor.putFloat(PREF_CENTER_X, center.x);
+                editor.putFloat(PREF_CENTER_Y, center.y);
+                editor.putFloat(PREF_SCALE, scale);
+            }
+        }
+        editor.apply();
+        unregisterReceiver(mBroadcastReceiver);
+    }
+
+    @Override
+    protected void onDestroy() {
+        Log.d(TAG, this.getClass().getSimpleName() + ": onDestroy: " +
+                "mUseLocation="
+                + mUseLocation + " mUpdateInterval=" + mUpdateInterval);
+        super.onDestroy();
+        // Unbind the service if it is bound
+        unbindService(mServiceConnection);
+        mLocationService = null;
+//        if (mDbAdapter != null) {
+//            mDbAdapter.close();
+//            mDbAdapter = null;
+//        }
     }
 
     @Override
@@ -108,15 +301,9 @@ public class MapImageActivity extends AppCompatActivity implements IConstants,
                 }
                 mUseLocation = true;
                 setupLocation();
-                notifyLocationDisabled();
                 return true;
             case R.id.stop_location:
-                if (!mUseLocation) {
-                    Utils.warnMsg(this, "Location is already stopped");
-                    return true;
-                }
                 disableLocation();
-                mUseLocation = false;
                 return true;
             case R.id.set_update_interval:
                 setUpdateInterval();
@@ -134,82 +321,19 @@ public class MapImageActivity extends AppCompatActivity implements IConstants,
         return false;
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        Log.d(TAG, this.getClass().getSimpleName()
-                + ": onResume: mUseLocation=" + mUseLocation
-                + " mUpdateInterval=" + mUpdateInterval
-                + "\nmPromptForReadExternalStorage="
-                + mPromptForReadExternalStorage);
-
-        // Restore the state
-        SharedPreferences prefs = PreferenceManager
-                .getDefaultSharedPreferences(this);
-        mUseLocation = prefs.getBoolean(PREF_USE_LOCATION, false);
-        mUpdateInterval = prefs.getInt(PREF_UPDATE_INTERVAL, 0);
-        Log.d(TAG, this.getClass().getSimpleName()
-                + ": onResume (1): mUseLocation=" + mUseLocation
-                + " mUpdateInterval=" + mUpdateInterval
-                + "\nmPromptForReadExternalStorage="
-                + mPromptForReadExternalStorage);
-        String fileName = prefs.getString(PREF_FILENAME, null);
-        Log.d(TAG, "  fileName=" + fileName);
-        if (Build.VERSION.SDK_INT >= 23
-                && ContextCompat.checkSelfPermission(this, Manifest
-                .permission.READ_EXTERNAL_STORAGE) != PackageManager
-                .PERMISSION_GRANTED) {
-            if (mPromptForReadExternalStorage) {
-                requestReadExternalStoragePermission();
-            }
-            mMapCalibration = null;
-            setNoImage();
-            return;
-        }
-        Log.d(TAG, this.getClass().getSimpleName()
-                + ": onResume (3): mUseLocation=" + mUseLocation
-                + " mUpdateInterval=" + mUpdateInterval
-                + "\nmPromptForReadExternalStorage="
-                + mPromptForReadExternalStorage);
-        if (fileName == null) {
-            mMapCalibration = null;
-            setNoImage();
-        } else {
-            if (mImageView != null) {
-                setNewImage(fileName);
-                float x = prefs.getFloat(PREF_CENTER_X, X_DEFAULT);
-                float y = prefs.getFloat(PREF_CENTER_Y, Y_DEFAULT);
-                float scale = prefs.getFloat(PREF_SCALE, SCALE_DEFAULT);
-                if (scale != SCALE_DEFAULT || x != X_DEFAULT || y !=
-                        Y_DEFAULT) {
-                    mImageView.setScaleAndCenter(scale, new PointF(x, y));
-                }
-            }
-            setupLocation();
-        }
-    }
-
-    @Override
-    protected void onPause() {
-        Log.d(TAG, this.getClass().getSimpleName() + ": onPause: " +
-                "mUseLocation="
-                + mUseLocation + " mUpdateInterval=" + mUpdateInterval);
-        super.onPause();
-        SharedPreferences.Editor editor = PreferenceManager
-                .getDefaultSharedPreferences(this)
-                .edit();
-        editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
-        if (mImageView != null) {
-            PointF center = mImageView.getCenter();
-            float scale = mImageView.getScale();
-            if (center != null) {
-                editor.putFloat(PREF_CENTER_X, center.x);
-                editor.putFloat(PREF_CENTER_Y, center.y);
-                editor.putFloat(PREF_SCALE, scale);
-            }
-        }
-        editor.apply();
-        disableLocation();
+    /**
+     * Make an IntentFilter for the actions in which we are interested.
+     *
+     * @return The IntentFilter.
+     */
+    private static IntentFilter makeBroadcastIntentFilter() {
+        final IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(ACTION_ERROR);
+        intentFilter.addAction(ACTION_LOCATION_CHANGED);
+        intentFilter.addAction(ACTION_PROVIDER_DISABLED);
+        intentFilter.addAction(ACTION_PROVIDER_ENABLED);
+        intentFilter.addAction(ACTION_STATUS_CHANGED);
+        return intentFilter;
     }
 
     /**
@@ -348,10 +472,10 @@ public class MapImageActivity extends AppCompatActivity implements IConstants,
                     .getDefaultSharedPreferences(this)
                     .edit();
             try {
-                String filePath = extras.getString(OPEN_FILE_PATH);
+                String filePath = extras.getString(EXTRA_OPEN_FILE_PATH);
                 // Just set the filePath, setNewImage will be done in onResume
                 editor.putString(PREF_FILENAME, filePath);
-            } catch (NumberFormatException ex) {
+            } catch (Exception ex) {
                 Utils.excMsg(this, "Did not get file name from Preferences",
                         ex);
             }
@@ -378,41 +502,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants,
         } catch (Exception ex) {
             Utils.excMsg(this, getString(R.string.help_show_error), ex);
         }
-    }
-
-    /**
-     * Bring up a dialog to change the sort order.
-     */
-
-    private void setUpdateInterval() {
-        int len = mUpdateIntervals.length;
-        final CharSequence[] items = new CharSequence[len];
-        System.arraycopy(mUpdateIntervals, 0, items, 0, len);
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(getText(R.string.update_title));
-        builder.setSingleChoiceItems(items, mUpdateInterval,
-                new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int item) {
-                        dialog.dismiss();
-                        if (item < 0 || item >= mUpdateIntervals.length) {
-                            Utils.errMsg(MapImageActivity.this,
-                                    "Invalid update interval");
-                            mUpdateInterval = 0;
-                        } else {
-                            mUpdateInterval = item;
-                        }
-                        SharedPreferences.Editor editor = PreferenceManager
-                                .getDefaultSharedPreferences(MapImageActivity
-                                        .this).edit();
-                        editor.putInt(PREF_UPDATE_INTERVAL, mUpdateInterval);
-                        editor.apply();
-                        // Reset the location
-                        disableLocation();
-                        setupLocation();
-                    }
-                });
-        AlertDialog alert = builder.create();
-        alert.show();
     }
 
     /**
@@ -685,31 +774,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants,
     }
 
     /**
-     * If location is not enabled brings up location settings to turn it on.
-     */
-    private void notifyLocationDisabled() {
-        Log.d(TAG, this.getClass().getSimpleName() + ": " +
-                "notifyLocationDisabled:" + " mUseLocation=" +
-                mUseLocation);
-        if (Build.VERSION.SDK_INT >= 23
-                && ContextCompat.checkSelfPermission(this, Manifest
-                .permission.ACCESS_COARSE_LOCATION) != PackageManager
-                .PERMISSION_GRANTED
-                && ContextCompat.checkSelfPermission(this, Manifest
-                .permission.ACCESS_FINE_LOCATION) != PackageManager
-                .PERMISSION_GRANTED) {
-            return;
-        }
-        boolean enabled = mLocationManager != null && mProvider != null &&
-                mLocationManager.isProviderEnabled(mProvider);
-        if (!enabled) {
-            Intent intent = new Intent(Settings
-                    .ACTION_LOCATION_SOURCE_SETTINGS);
-            startActivity(intent);
-        }
-    }
-
-    /**
      * Initializes location parameters.  Does nothing if not using location.
      */
     private void setupLocation() {
@@ -736,37 +800,84 @@ public class MapImageActivity extends AppCompatActivity implements IConstants,
                 .PERMISSION_GRANTED) {
             // Don't set mUseLocation = false here
             // It will be set on onRequestPermissionResult if not allowed
-//            mUseLocation = false;
-
             requestLocationPermission();
             return;
+        } else if (Build.VERSION.SDK_INT < 23) {
+            // Bring up dialog to enable location
+            // Only used on Android 22 and lower
+            if (mLocationService == null) {
+                Intent intent = new Intent(Settings
+                        .ACTION_LOCATION_SOURCE_SETTINGS);
+                startActivity(intent);
+            }
         }
 
-        // Get the location manager
-        mLocationManager = (LocationManager) getSystemService(Context
-                .LOCATION_SERVICE);
-        // Define the criteria how to select the location provider -> use
-        // default
-        // Criteria criteria = new Criteria();
-        // provider = mLocationManager.getBestProvider(criteria, false);
-        mProvider = LocationManager.GPS_PROVIDER;
-        if (mLocationManager == null
-                || !mLocationManager.isProviderEnabled(mProvider)) {
-            return;
+        // Start the service
+        if (mLocationService == null) {
+            bindService(new Intent(this, MapImageLocationService.class),
+                    mServiceConnection, BIND_AUTO_CREATE);
         }
-        // Get the last known location and set it
-        Location lastLocation = mLocationManager
-                .getLastKnownLocation(mProvider);
-        onLocationChanged(lastLocation);
-        // Check index is in range
-        if (mUpdateInterval >= LOCATION_UPDATE_TIMES.length
-                || mUpdateInterval < 0) {
-            mUpdateInterval = 0;
+    }
+
+    private void disableLocation() {
+        Log.d(TAG, this.getClass().getSimpleName() + ": " +
+                "disableLocation:" + " mUseLocation=" + mUseLocation);
+        // Unbind the service
+        if (mLocationService != null) {
+            unbindService(mServiceConnection);
         }
-        // Request updates
-        mLocationManager.requestLocationUpdates(mProvider,
-                LOCATION_UPDATE_TIMES[mUpdateInterval],
-                LOCATION_UPDATE_DISTANCES[mUpdateInterval], this);
+        mLocationService = null;
+        mLocation = null;
+        mUseLocation = false;
+        if (mImageView != null) mImageView.setLocation(null);
+    }
+
+    /**
+     * Bring up a dialog to change the update interval.
+     */
+    private void setUpdateInterval() {
+        Log.d(TAG, this.getClass().getSimpleName() + ": " +
+                "setUpdateInterval:");
+        int len = mUpdateIntervals.length;
+        final CharSequence[] items = new CharSequence[len];
+        System.arraycopy(mUpdateIntervals, 0, items, 0, len);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getText(R.string.update_title));
+        builder.setSingleChoiceItems(items, mUpdateInterval,
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int item) {
+                        dialog.dismiss();
+                        if (item < 0 || item >= mUpdateIntervals.length) {
+                            Utils.errMsg(MapImageActivity.this,
+                                    "Invalid update interval");
+                            mUpdateInterval = 0;
+                        } else {
+                            mUpdateInterval = item;
+                        }
+                        SharedPreferences.Editor editor = PreferenceManager
+                                .getDefaultSharedPreferences(MapImageActivity
+                                        .this).edit();
+                        editor.putInt(PREF_UPDATE_INTERVAL,
+                                mUpdateInterval);
+                        editor.apply();
+                        if (mLocationService != null) {
+                            try {
+                                mLocationService.setUpdateInterval(mUpdateInterval);
+                            } catch (SecurityException ex) {
+                                Utils.excMsg(MapImageActivity.this,
+                                        "SecurityException during " +
+                                                "setupLocation", ex);
+                            } catch (IllegalArgumentException ex) {
+                                Utils.excMsg(MapImageActivity.this,
+                                        "IllegalArgument exception during" +
+                                                " " +
+                                                "setupLocation", ex);
+                            }
+                        }
+                    }
+                });
+        AlertDialog alert = builder.create();
+        alert.show();
     }
 
     /**
@@ -774,116 +885,27 @@ public class MapImageActivity extends AppCompatActivity implements IConstants,
      */
     private void requestLocationPermission() {
         ActivityCompat.requestPermissions(this, new String[]{Manifest
-                .permission.ACCESS_FINE_LOCATION}, ACCESS_FINE_LOCATION_REQ);
+                        .permission.ACCESS_FINE_LOCATION},
+                ACCESS_FINE_LOCATION_REQ);
     }
 
     /**
      * Request permission for READ_EXTERNAL_STORAGE.
      */
     private void requestReadExternalStoragePermission() {
-        // This is not available before API 16
+        Log.d(TAG, this.getClass().getSimpleName() + ": " +
+                "requestReadExternalStoragePermission:");
         if (Build.VERSION.SDK_INT < 16) return;
         ActivityCompat.requestPermissions(this, new String[]{Manifest
                         .permission.READ_EXTERNAL_STORAGE},
                 ACCESS_READ_EXTERNAL_STORAGE_REQ);
     }
 
-    private void disableLocation() {
-        Log.d(TAG, this.getClass().getSimpleName() + ": " +
-                "disableLocation:" + " mUseLocation=" +
-                mUseLocation);
-        if (!mUseLocation) {
-            return;
-        }
-        if (Build.VERSION.SDK_INT >= 23
-                && ContextCompat.checkSelfPermission(this, Manifest
-                .permission.ACCESS_COARSE_LOCATION) != PackageManager
-                .PERMISSION_GRANTED
-                && ContextCompat.checkSelfPermission(this, Manifest
-                .permission.ACCESS_FINE_LOCATION) != PackageManager
-                .PERMISSION_GRANTED) {
-            return;
-        }
-        if (mLocationManager != null) {
-            mLocationManager.removeUpdates(this);
-            mLocationManager = null;
-        }
-        mProvider = null;
-        mLocation = null;
-        if (mImageView != null) mImageView.setLocation(null);
-    }
-
     @Override
-    public void onLocationChanged(Location location) {
-//        Log.d(TAG, this.getClass().getSimpleName() + ": onLocationChanged: "
-//                + location.getLongitude() + ", " + location.getLatitude());
-        mLocation = location;
-        if (mLocation == null) {
-            return;
-        }
-        if (mMapCalibration != null && mMapCalibration.getTransform() != null) {
-            float lon = (float) location.getLongitude();
-            float lat = (float) location.getLatitude();
-            int[] locationVals = mMapCalibration.inverse(lon, lat);
-            if (locationVals == null) {
-                Log.d(TAG, this.getClass().getSimpleName()
-                        + "  locationVals  is null");
-                return;
-            }
-            PointF locationPoint = new PointF(locationVals[0], locationVals[1]);
-            mImageView.setLocation(locationPoint);
-        } else {
-            Log.d(TAG, this.getClass().getSimpleName()
-                    + ": onLocationChanged: transform is null");
-        }
-    }
-
-    @Override
-    public void onStatusChanged(String provider, int status, Bundle extras) {
-        // Log.d(TAG, this.getClass().getSimpleName() + ": onStatusChanged: "
-        // + "enabled=" + mLocationManager.isProviderEnabled(provider)
-        // + " status=" + status + " (AVAILABLE="
-        // + LocationProvider.AVAILABLE + ")");
-
-        if (status == LocationProvider.OUT_OF_SERVICE) {
-            mImageView.setLocation(null);
-        }
-    }
-
-    @Override
-    public void onProviderEnabled(String provider) {
-        Log.d(TAG, this.getClass().getSimpleName() + ": " +
-                "onProviderEnabled:" + " mUseLocation=" +
-                mUseLocation);
-        if (Build.VERSION.SDK_INT >= 23
-                && ContextCompat.checkSelfPermission(this, Manifest
-                .permission.ACCESS_COARSE_LOCATION) != PackageManager
-                .PERMISSION_GRANTED
-                && ContextCompat.checkSelfPermission(this, Manifest
-                .permission.ACCESS_FINE_LOCATION) != PackageManager
-                .PERMISSION_GRANTED) {
-            return;
-        }
-
-        // Get the last known location and set it
-        if (mProvider != null && mLocationManager != null
-                && mLocationManager.isProviderEnabled(mProvider)) {
-            Location lastLocation = mLocationManager
-                    .getLastKnownLocation(mProvider);
-            onLocationChanged(lastLocation);
-        }
-    }
-
-    @Override
-    public void onProviderDisabled(String provider) {
-        Log.d(TAG, this.getClass().getSimpleName() + ": onProviderDisabled");
-        mImageView.setLocation(null);
-        mImageView.invalidate();
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[]
-            permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[]
+                                                   permissions,
+                                           @NonNull int[] grantResults) {
         Log.d(TAG, this.getClass().getSimpleName() + ": " +
                 "onRequestPermissionsResult:" + " permissions=" +
                 permissions[0]
@@ -902,7 +924,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants,
                 } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
                     Log.d(TAG, "FINE_LOCATION denied");
                     mUseLocation = false;
-                    // Save this as onResume will be called next, not onPause
+                    // Save this as onResume will be called next, not
+                    // onPause
                     SharedPreferences.Editor editor = PreferenceManager
                             .getDefaultSharedPreferences(this)
                             .edit();
@@ -911,7 +934,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants,
                 }
                 break;
             case ACCESS_READ_EXTERNAL_STORAGE_REQ:
-                // FINE_LOCATION
+                // READ_EXTERNAL_STORAGE
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     Log.d(TAG, "READ_EXTERNAL_STORAGE granted");
                     mPromptForReadExternalStorage = true;
@@ -919,7 +942,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants,
                     Log.d(TAG, "READ_EXTERNAL_STORAGE denied");
                     mPromptForReadExternalStorage = false;
                     mUseLocation = false;
-                    // Save this as onResume will be called next, not onPause
+                    // Save this as onResume will be called next, not
+                    // onPause
                     SharedPreferences.Editor editor = PreferenceManager
                             .getDefaultSharedPreferences(this)
                             .edit();

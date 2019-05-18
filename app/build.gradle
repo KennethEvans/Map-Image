@@ -6,8 +6,8 @@ android {
         minSdkVersion 14
         targetSdkVersion 28
         applicationId "net.kenevans.android.mapimage"
-        versionCode 7
-        versionName "2.0.0"
+        versionCode 8
+        versionName "3.0.0"
     }
     buildTypes {
         release {

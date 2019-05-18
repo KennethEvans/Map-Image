@@ -30,6 +30,19 @@ interface IConstants {
      */
     String TAG = "MapImage";
 
+    String PACKAGE_NAME = "net.kenevans.android.mapimage";
+    String ACTION_LOCATION_CHANGED = PACKAGE_NAME + ".ACTION_LOCATION_CHANGED";
+    String ACTION_PROVIDER_DISABLED = PACKAGE_NAME +
+            ".ACTION_PROVIDER_DISABLED";
+    String ACTION_PROVIDER_ENABLED = PACKAGE_NAME + ".ACTION_PROVIDER_ENABLED";
+    String ACTION_STATUS_CHANGED = PACKAGE_NAME + ".ACTION_STATUS_CHANGED";
+    String ACTION_ERROR = PACKAGE_NAME + ".ACTION_ERROR";
+    String EXTRA_LAT = PACKAGE_NAME + ".extraLatitude";
+    String EXTRA_LON = PACKAGE_NAME + ".extraLongitude";
+    String EXTRA_STATUS = PACKAGE_NAME + ".extraStatus";
+    String EXTRA_ACCURACY = PACKAGE_NAME + ".extraAccuracy";
+    String EXTRA_OPEN_FILE_PATH = PACKAGE_NAME + ".OpenFileName";
+
     /**
      * Key for information URL sent to InfoActivity.
      */
@@ -96,8 +109,4 @@ interface IConstants {
      * Request code for displaying an image.
      */
     int DISPLAY_IMAGE_REQ = 0;
-    /**
-     * Result code for DISPLAY_MESSAGE indicating the previous message.
-     */
-    String OPEN_FILE_PATH = "OpenFileName";
 }
