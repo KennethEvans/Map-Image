@@ -256,7 +256,7 @@ public class MapImageLocationService extends Service implements IConstants {
         NotificationCompat.Builder notificationBuilder = new
                 NotificationCompat.Builder(
                 this, channnelId)
-                .setSmallIcon(R.drawable.mapimage)
+                .setSmallIcon(R.drawable.ic_stat_mapimage_notification)
                 .setContentTitle(getString(R.string.service_notification_title))
                 .setContentText(getString(R.string.service_notification_text))
                 .setContentIntent(viewPendingIntent);
