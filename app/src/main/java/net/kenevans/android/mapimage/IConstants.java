@@ -88,6 +88,7 @@ interface IConstants {
 
     String PREF_FILENAME = "fileName";
     String PREF_USE_LOCATION = "useLocation";
+    String PREF_TRACKING = "tracking";
     String PREF_IMAGE_DIRECTORY = "imageDirectory";
     String PREF_UPDATE_INTERVAL = "updateInterval";
     String PREF_SCALE = "scale";
@@ -109,4 +110,9 @@ interface IConstants {
      * Request code for displaying an image.
      */
     int DISPLAY_IMAGE_REQ = 0;
+
+    /**
+     * Notification ID for managing notifications.
+     */
+    int NOTIFICATION_ID = 1;
 }

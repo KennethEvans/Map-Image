@@ -1,6 +1,7 @@
 package net.kenevans.android.mapimage;
 
 import android.Manifest;
+import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -49,6 +50,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      */
     private Location mLocation;
     private boolean mUseLocation = false;
+    private boolean mTracking;
     private MapImageLocationService mLocationService;
     /**
      * Flag to show whether to prompt for READ_EXTERNAL_STORAGE permission if
@@ -70,6 +72,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     Log.d(TAG, "onServiceConnected: ");
                     mLocationService = ((MapImageLocationService.LocalBinder)
                             service).getService();
+                    mLocationService.setTracking(mTracking);
 //                    if (mDbAdapter != null) {
 //                        mBLECardiacBleService.startDatabase(mDbAdapter);
 //                    }
@@ -180,6 +183,10 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         SharedPreferences prefs = PreferenceManager
                 .getDefaultSharedPreferences(this);
         mUseLocation = prefs.getBoolean(PREF_USE_LOCATION, false);
+        mTracking = prefs.getBoolean(PREF_TRACKING, false);
+        if (mLocationService != null) {
+            mLocationService.setTracking(mTracking);
+        }
         mUpdateInterval = prefs.getInt(PREF_UPDATE_INTERVAL, 0);
         Log.d(TAG, this.getClass().getSimpleName()
                 + ": onResume (1): mUseLocation=" + mUseLocation
@@ -241,6 +248,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 .getDefaultSharedPreferences(this)
                 .edit();
         editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
+        editor.putBoolean(PREF_TRACKING, mTracking);
         if (mImageView != null) {
             PointF center = mImageView.getCenter();
             float scale = mImageView.getScale();
@@ -277,6 +285,21 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     }
 
     @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        if (mUseLocation) {
+            menu.findItem(R.id.start_location).setTitle(R.string.stop_location_item);
+        } else {
+            menu.findItem(R.id.start_location).setTitle(R.string.start_location_item);
+        }
+        if (mTracking) {
+            menu.findItem(R.id.start_tracking).setTitle(R.string.stop_tracking_item);
+        } else {
+            menu.findItem(R.id.start_tracking).setTitle(R.string.start_tracking_item);
+        }
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         switch (id) {
@@ -287,23 +310,31 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 openImageForLocation();
                 return true;
             case R.id.start_location:
-                if (Build.VERSION.SDK_INT >= 23
-                        && ContextCompat.checkSelfPermission(this, Manifest
-                        .permission.READ_EXTERNAL_STORAGE) != PackageManager
-                        .PERMISSION_GRANTED) {
-                    Utils.warnMsg(this, "Location cannot be started if there" +
-                            " is no permission for READ_EXTERNAL_STORAGE");
-                    return true;
-                }
                 if (mUseLocation) {
-                    Utils.warnMsg(this, "Location is already started");
-                    return true;
+                    disableLocation();
+                } else {
+                    if (Build.VERSION.SDK_INT >= 23
+                            && ContextCompat.checkSelfPermission(this, Manifest
+                            .permission.READ_EXTERNAL_STORAGE) != PackageManager
+                            .PERMISSION_GRANTED) {
+                        Utils.warnMsg(this, "Location cannot be started if " +
+                                "there" +
+                                " is no permission for READ_EXTERNAL_STORAGE");
+                        return true;
+                    }
+                    if (mUseLocation) {
+                        Utils.warnMsg(this, "Location is already started");
+                        return true;
+                    }
+                    mUseLocation = true;
+                    setupLocation();
                 }
-                mUseLocation = true;
-                setupLocation();
                 return true;
-            case R.id.stop_location:
-                disableLocation();
+            case R.id.start_tracking:
+                mTracking = !mTracking;
+                if (mLocationService != null) {
+                    mLocationService.setTracking(mTracking);
+                }
                 return true;
             case R.id.set_update_interval:
                 setUpdateInterval();
@@ -771,6 +802,24 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 }
             }
         }
+    }
+
+    /**
+     * Checks if the service is running
+     *
+     * @param serviceClass
+     * @return If service is running or not.
+     */
+    private boolean isServiceRunning(Class<?> serviceClass) {
+        ActivityManager manager =
+                (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service :
+                manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (serviceClass.getName().equals(service.service.getClassName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

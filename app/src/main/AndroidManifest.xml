@@ -4,6 +4,7 @@
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application
         android:allowBackup="true"
@@ -29,7 +30,8 @@
         </activity>
         <service
             android:name="net.kenevans.android.mapimage.MapImageLocationService"
-            android:enabled="true" >
+            android:exported="false"
+        android:enabled="true" >
         </service>
     </application>
 </manifest>
