@@ -267,16 +267,16 @@ public class MapImageLocationService extends Service implements IConstants {
         return mTracking;
     }
 
-    public void setTracking(boolean mTracking) {
-        this.mTracking = mTracking;
+    public void setTracking(boolean tracking) {
+        mTracking = tracking;
     }
 
     public List<Trackpoint> getTrackpointList() {
         return mTrackpointList;
     }
 
-    public void setTrackpointList(List<Trackpoint> mTrackpointList) {
-        this.mTrackpointList = mTrackpointList;
+    public void setTrackpointList(List<Trackpoint> trackpointList) {
+        mTrackpointList = trackpointList;
     }
 
     public void clearTrackpointList() {

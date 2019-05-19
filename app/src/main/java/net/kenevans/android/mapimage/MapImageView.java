@@ -25,11 +25,16 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PointF;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
+import android.util.TypedValue;
 
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView;
+
+import java.util.List;
 
 /**
  * Based on an example at:
@@ -42,6 +47,7 @@ public class MapImageView extends SubsamplingScaleImageView implements
         IConstants {
     private Bitmap mLocationCursor;
     private PointF mLocationPoint;
+    private List<PointF> mTrackPointList;
     private Paint mPaint;
 
     /**
@@ -84,11 +90,28 @@ public class MapImageView extends SubsamplingScaleImageView implements
         invalidate();
     }
 
+    public void setTracks(List<PointF> trackPointList) {
+        this.mTrackPointList = trackPointList;
+        invalidate();
+    }
+
+    public void setLocationAndTracks(PointF locationPoint,
+                                     List<PointF> trackPointList) {
+        this.mLocationPoint = locationPoint;
+        this.mTrackPointList = trackPointList;
+        if (mLocationCursor == null) {
+            init();
+        }
+        invalidate();
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
 //        Log.d(TAG, this.getClass().getSimpleName()
 //                + ": onDraw:" + " mLocationPoint=" + mLocationPoint.x + ","
-// + mLocationPoint.y);
+//                + mLocationPoint.y + " mTrackPointList.size="
+//                + (mTrackPointList == null ? "null" : mTrackPointList.size
+//                ()));
         super.onDraw(canvas);
         // Don't draw cursor before image is ready so it doesn't move around
         // during setup.
@@ -99,10 +122,37 @@ public class MapImageView extends SubsamplingScaleImageView implements
             mPaint = new Paint();
         }
         mPaint.setAntiAlias(true);
+
+        if (mTrackPointList != null && !mTrackPointList.isEmpty()) {
+            int nTrackpoints = mTrackPointList.size();
+            float[] pts = new float[4 * nTrackpoints];
+            int index = 0;
+            PointF pt = sourceToViewCoord(mTrackPointList.get(0));
+            PointF pt1;
+            for (int i = 0; i < nTrackpoints - 1; i++) {
+                pt1 = sourceToViewCoord(mTrackPointList.get(i + 1));
+                if (pt != null && pt1 != null) {
+                    pts[index++] = pt.x;
+                    pts[index++] = pt.y;
+                    pts[index++] = pt1.x;
+                    pts[index++] = pt1.y;
+                }
+                pt = pt1;
+            }
+            mPaint.setColor(Color.BLUE);
+            final int dpSize = 10;
+            DisplayMetrics dm = getResources().getDisplayMetrics();
+            float strokeWidth =
+                    TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
+                            dpSize, dm);
+            mPaint.setStrokeWidth(strokeWidth);
+            canvas.drawLines(pts, mPaint);
+        }
         if (mLocationPoint != null && mLocationCursor != null) {
             PointF vPoint = sourceToViewCoord(mLocationPoint);
-            float vX = vPoint.x - (mLocationCursor.getWidth() / 2);
-            float vY = vPoint.y - mLocationCursor.getHeight() / 2;
+            if (vPoint != null) {
+                float vX = vPoint.x - (mLocationCursor.getWidth() / 2f);
+                float vY = vPoint.y - mLocationCursor.getHeight() / 2f;
 //            Log.d(TAG, "vPoint=" + mLocationPoint.x + "," + mLocationPoint.y +
 //                    " v=" + vX + "," + vY);
 //            Log.d(TAG, "mLocationCursor="
@@ -111,7 +161,8 @@ public class MapImageView extends SubsamplingScaleImageView implements
 //            Log.d(TAG, "mLocationCursor="
 //                    + mLocationCursor.getScaledWidth(canvas) + ","
 //                    + mLocationCursor.getScaledHeight(canvas));
-            canvas.drawBitmap(mLocationCursor, vX, vY, mPaint);
+                canvas.drawBitmap(mLocationCursor, vX, vY, mPaint);
+            }
         }
     }
 

@@ -49,6 +49,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      * Location, used for lat, lon, Accuracy only.
      */
     private Location mLocation;
+    private List<PointF> mTrackPointList;
     private boolean mUseLocation = false;
     private boolean mTracking;
     private MapImageLocationService mLocationService;
@@ -111,13 +112,18 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 public void onReceive(Context context, Intent intent) {
                     final String action = intent.getAction();
                     if (ACTION_LOCATION_CHANGED.equals(action)) {
-                        if (mMapCalibration != null && mMapCalibration.getTransform() != null) {
+                        if (mMapCalibration != null &&
+                                mMapCalibration.getTransform() != null) {
                             if (mLocation == null) {
                                 mLocation = new Location("");
                             }
-                            mLocation.setLatitude(intent.getDoubleExtra(EXTRA_LAT, 0.));
-                            mLocation.setLongitude(intent.getDoubleExtra(EXTRA_LON, 0.));
-                            mLocation.setAccuracy(intent.getFloatExtra(EXTRA_ACCURACY, 0));
+                            double lat = intent.getDoubleExtra(EXTRA_LAT, 0.);
+                            double lon = intent.getDoubleExtra(EXTRA_LON, 0.);
+                            float accuracy =
+                                    intent.getFloatExtra(EXTRA_ACCURACY, 0);
+                            mLocation.setLatitude(lat);
+                            mLocation.setLongitude(lon);
+                            mLocation.setAccuracy(accuracy);
                             int[] locationVals =
                                     mMapCalibration.inverse(mLocation.getLongitude(),
                                             mLocation.getLatitude());
@@ -128,7 +134,17 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                             }
                             PointF locationPoint = new PointF(locationVals[0]
                                     , locationVals[1]);
-                            mImageView.setLocation(locationPoint);
+                            if (mTracking) {
+                                if (mTrackPointList == null) {
+                                    mTrackPointList = new ArrayList<>();
+                                }
+                                mTrackPointList.add(new PointF(locationVals[0]
+                                        , locationVals[1]));
+                            } else {
+                                mTrackPointList = null;
+                            }
+                            mImageView.setLocationAndTracks(locationPoint,
+                                    mTrackPointList);
                         } else {
                             Log.d(TAG, this.getClass().getSimpleName()
                                     + ": onLocationChanged: transform is null");
@@ -186,6 +202,19 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         mTracking = prefs.getBoolean(PREF_TRACKING, false);
         if (mLocationService != null) {
             mLocationService.setTracking(mTracking);
+            if (mTracking) {
+                if (mLocationService != null) {
+                    mTrackPointList =
+                            getPointsFromTrackpoints(
+                                    mLocationService.mTrackpointList);
+                }
+                if (mTrackPointList == null) {
+                    mTrackPointList = new ArrayList<>();
+                }
+            } else {
+                mTrackPointList = null;
+            }
+            mImageView.setTracks(mTrackPointList);
         }
         mUpdateInterval = prefs.getInt(PREF_UPDATE_INTERVAL, 0);
         Log.d(TAG, this.getClass().getSimpleName()
@@ -287,14 +316,18 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
         if (mUseLocation) {
-            menu.findItem(R.id.start_location).setTitle(R.string.stop_location_item);
+            menu.findItem(R.id.start_location).
+                    setTitle(R.string.stop_location_item);
         } else {
-            menu.findItem(R.id.start_location).setTitle(R.string.start_location_item);
+            menu.findItem(R.id.start_location).
+                    setTitle(R.string.start_location_item);
         }
         if (mTracking) {
-            menu.findItem(R.id.start_tracking).setTitle(R.string.stop_tracking_item);
+            menu.findItem(R.id.start_tracking).
+                    setTitle(R.string.stop_tracking_item);
         } else {
-            menu.findItem(R.id.start_tracking).setTitle(R.string.start_tracking_item);
+            menu.findItem(R.id.start_tracking).
+                    setTitle(R.string.start_tracking_item);
         }
         return super.onPrepareOptionsMenu(menu);
     }
@@ -335,6 +368,20 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 if (mLocationService != null) {
                     mLocationService.setTracking(mTracking);
                 }
+                // Get the stored trackpoints from the service if any
+                if (mTracking) {
+                    if (mLocationService != null) {
+                        mTrackPointList =
+                                getPointsFromTrackpoints(
+                                        mLocationService.mTrackpointList);
+                    }
+                    if (mTrackPointList == null) {
+                        mTrackPointList = new ArrayList<>();
+                    }
+                } else {
+                    mTrackPointList = null;
+                }
+                mImageView.setTracks(mTrackPointList);
                 return true;
             case R.id.set_update_interval:
                 setUpdateInterval();
@@ -807,7 +854,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     /**
      * Checks if the service is running
      *
-     * @param serviceClass
+     * @param serviceClass The class of the service.
      * @return If service is running or not.
      */
     private boolean isServiceRunning(Class<?> serviceClass) {
@@ -927,6 +974,26 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 });
         AlertDialog alert = builder.create();
         alert.show();
+    }
+
+    /**
+     * Converts a List<Trackpoint> to a List<PointF> containing the pixel
+     * coordinates of the lat, lon values.
+     *
+     * @param trackPointList The trackpoint list.
+     * @return The list of pixel coordinates.
+     */
+    private List<PointF> getPointsFromTrackpoints(List<Trackpoint> trackPointList) {
+        if (trackPointList == null) {
+            return null;
+        }
+        List<PointF> points = new ArrayList<>();
+        for (Trackpoint tkpt : trackPointList) {
+            int[] locationVals =
+                    mMapCalibration.inverse(tkpt.lon, tkpt.lat);
+            points.add(new PointF(locationVals[0], locationVals[1]));
+        }
+        return points;
     }
 
     /**
