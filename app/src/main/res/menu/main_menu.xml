@@ -10,6 +10,10 @@
           android:title="@string/start_location_item" />
     <item android:id="@+id/start_tracking"
           android:title="@string/start_tracking_item" />
+    <item android:id="@+id/save_gpx"
+          android:title="@string/save_gpx_item" />
+    <item android:id="@+id/startclear_track"
+          android:title="@string/clear_track_item" />
     <item android:id="@+id/set_update_interval"
           android:title="@string/update_title" />
     <item android:id="@+id/image_info"

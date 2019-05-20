@@ -263,12 +263,17 @@ public class MapImageLocationService extends Service implements IConstants {
         return notificationBuilder.build();
     }
 
-    public boolean setTracking() {
+    public boolean getTracking() {
         return mTracking;
     }
 
     public void setTracking(boolean tracking) {
         mTracking = tracking;
+        // Put a null in the trackpoiny list if tracking is truned off
+        // Will indicate a new segment
+        if (!mTracking && mTrackpointList != null && !mTrackpointList.isEmpty()) {
+            mTrackpointList.add(null);
+        }
     }
 
     public List<Trackpoint> getTrackpointList() {

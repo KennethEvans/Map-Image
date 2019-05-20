@@ -11,6 +11,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -19,24 +20,33 @@ import android.location.Location;
 import android.location.LocationProvider;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
+import android.text.InputType;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.WindowManager;
+import android.widget.EditText;
+import android.widget.Toast;
 
 import com.davemorrissey.labs.subscaleview.ImageSource;
 
 import net.kenevans.android.mapimage.MapCalibration.MapData;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.TimeZone;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -58,6 +68,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      * it has not been granted.
      */
     private boolean mPromptForReadExternalStorage = true;
+    private boolean mPromptForWriteExternalStorage = true;
     private MapCalibration mMapCalibration;
     private CharSequence[] mUpdateIntervals;
     private int mUpdateInterval = 0;
@@ -382,6 +393,15 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     mTrackPointList = null;
                 }
                 mImageView.setTracks(mTrackPointList);
+                return true;
+            case R.id.save_gpx:
+                saveGpx();
+                return true;
+            case R.id.startclear_track:
+                if (mLocationService != null &&
+                        mLocationService.mTrackpointList != null) {
+                    mLocationService.mTrackpointList.clear();
+                }
                 return true;
             case R.id.set_update_interval:
                 setUpdateInterval();
@@ -928,6 +948,149 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         if (mImageView != null) mImageView.setLocation(null);
     }
 
+    private void saveGpx() {
+        if (mLocationService == null) {
+            Utils.errMsg(this, "No tracks: Location service is not running");
+            return;
+        }
+        List<Trackpoint> trackpointList = mLocationService.mTrackpointList;
+        if (trackpointList == null || trackpointList.isEmpty()) {
+            Utils.errMsg(this, "There are no tracks");
+            return;
+        }
+        // Check WRITE_EXTERNAL_STORAGE
+        if (Build.VERSION.SDK_INT >= 23
+                && ContextCompat.checkSelfPermission(this, Manifest
+                .permission.WRITE_EXTERNAL_STORAGE) != PackageManager
+                .PERMISSION_GRANTED) {
+            if (mPromptForWriteExternalStorage) {
+                requestWriteExternalStoragePermission();
+            } else {
+                Utils.errMsg(this,
+                        "Permission for WRITE_EXTERNAL_STORAGE is not granted");
+            }
+            return;
+        }
+
+        String msg;
+        String state = Environment.getExternalStorageState();
+        if (!Environment.MEDIA_MOUNTED.equals(state)) {
+            msg = "External Storage is not available";
+            Log.e(TAG, msg);
+            Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+            return;
+        }
+        // Get an identifier
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this);
+        dialog.setTitle(R.string.add_identifier_title);
+
+        // Set up the input
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        dialog.setView(input);
+        dialog.setPositiveButton(R.string.ok,
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        finishGpxSave(input.getText().toString());
+                    }
+                });
+        dialog.setNegativeButton(R.string.cancel,
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                    }
+                });
+        dialog.show();
+    }
+
+    /**
+     * Finishes the save after getting the identifier.
+     *
+     * @param identifier The identifier.
+     */
+    private void finishGpxSave(String identifier) {
+        String msg;
+        File dir = Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DOWNLOADS);
+
+        List<Trackpoint> trackpointList = mLocationService.mTrackpointList;
+
+        String name;
+        SimpleDateFormat trackpointFormatter = new SimpleDateFormat(
+                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+        trackpointFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
+        try {
+            PackageManager pm = getPackageManager();
+            PackageInfo po = pm.getPackageInfo(this.getPackageName(), 0);
+            name = "MapImage " + po.versionName;
+        } catch (Exception ex) {
+            name = "MapImage";
+        }
+
+        String format = "yyyy-MM-dd_HH-mm";
+        SimpleDateFormat filenameFormatter = new SimpleDateFormat(format,
+                Locale.US);
+        Date now = new Date();
+        String fileName;
+        if (identifier == null || identifier.isEmpty()) {
+            fileName = "MapImage-" + filenameFormatter.format(now) + ".gpx";
+        } else {
+            fileName =
+                    "MapImage-" + filenameFormatter.format(now) + "_" + identifier + ".gpx";
+        }
+        File file = new File(dir, fileName);
+        PrintWriter out = null;
+        String line, lat, lon, ele;
+        long time;
+        boolean lastTrackpointNull = true;
+        try {
+            // Write header
+            out = new PrintWriter(new FileWriter(file));
+            // Write the beginning lines
+            out.write(String.format(GPXUtils.GPX_FILE_START_LINES, name,
+                    trackpointFormatter.format(now)));
+            for (Trackpoint tkpt : trackpointList) {
+                // Make a new segment if the trackpoint is null
+                if (tkpt == null) {
+                    // Avoid empty segments
+                    if (lastTrackpointNull) continue;
+                    lastTrackpointNull = true;
+                    out.write(GPXUtils.GPX_FILE_NEW_SEGMENT);
+                    continue;
+                } else {
+                    lastTrackpointNull = false;
+                }
+                lat = String.format(Locale.US, "%.6f", tkpt.lat);
+                lon = String.format(Locale.US, "%.6f", tkpt.lon);
+                ele = String.format(Locale.US, "%.6f", tkpt.alt);
+                time = tkpt.time;
+                line = String.format(GPXUtils.GPX_FILE_TRACK_LINES,
+                        lat, lon, ele,
+                        trackpointFormatter.format(new Date(time)));
+                out.write(line);
+            }
+            out.write(GPXUtils.GPX_FILE_END_LINES);
+            out.flush();
+            msg = "Wrote " + file.getPath();
+            Log.d(TAG, msg);
+            Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+        } catch (Exception ex) {
+            msg = "Error writing " + file.getPath();
+            Log.e(TAG, msg);
+            Log.e(TAG, Log.getStackTraceString(ex));
+            Utils.excMsg(this, msg, ex);
+        } finally {
+            if (out != null) {
+                try {
+                    out.close();
+                } catch (Exception ex) {
+                    // Do nothing
+                }
+            }
+        }
+    }
+
     /**
      * Bring up a dialog to change the update interval.
      */
@@ -989,6 +1152,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         }
         List<PointF> points = new ArrayList<>();
         for (Trackpoint tkpt : trackPointList) {
+            if (tkpt == null) continue;
             int[] locationVals =
                     mMapCalibration.inverse(tkpt.lon, tkpt.lat);
             points.add(new PointF(locationVals[0], locationVals[1]));
@@ -1015,6 +1179,18 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         ActivityCompat.requestPermissions(this, new String[]{Manifest
                         .permission.READ_EXTERNAL_STORAGE},
                 ACCESS_READ_EXTERNAL_STORAGE_REQ);
+    }
+
+    /**
+     * Request permission for WRITE_EXTERNAL_STORAGE.
+     */
+    private void requestWriteExternalStoragePermission() {
+        Log.d(TAG, this.getClass().getSimpleName() + ": " +
+                "requestWriteExternalStoragePermission:");
+        if (Build.VERSION.SDK_INT < 16) return;
+        ActivityCompat.requestPermissions(this, new String[]{Manifest
+                        .permission.WRITE_EXTERNAL_STORAGE},
+                ACCESS_WRITE_EXTERNAL_STORAGE_REQ);
     }
 
     @Override
@@ -1065,6 +1241,16 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                             .edit();
                     editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
                     editor.apply();
+                }
+                break;
+            case ACCESS_WRITE_EXTERNAL_STORAGE_REQ:
+                // READ_EXTERNAL_STORAGE
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.d(TAG, "WRITE_EXTERNAL_STORAGE granted");
+                    mPromptForWriteExternalStorage = true;
+                } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
+                    Log.d(TAG, "WRITE_EXTERNAL_STORAGE denied");
+                    mPromptForWriteExternalStorage = false;
                 }
                 break;
         }

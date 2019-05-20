@@ -107,6 +107,11 @@ interface IConstants {
     int ACCESS_READ_EXTERNAL_STORAGE_REQ = 2;
 
     /**
+     * Request code for WRITE_EXTERNAL_STORAGE.
+     */
+    int ACCESS_WRITE_EXTERNAL_STORAGE_REQ = 3;
+
+    /**
      * Request code for displaying an image.
      */
     int DISPLAY_IMAGE_REQ = 0;
