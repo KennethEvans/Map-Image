@@ -1010,6 +1010,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      * @param identifier The identifier.
      */
     private void finishGpxSave(String identifier) {
+        Log.d(TAG, this.getClass().getSimpleName());
         String msg;
         File dir = Environment.getExternalStoragePublicDirectory(
                 Environment.DIRECTORY_DOWNLOADS);
@@ -1028,38 +1029,51 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             name = "MapImage";
         }
 
-        String format = "yyyy-MM-dd_HH-mm";
+        String format = "yyyy-MM-dd_HH-mm-ss";
         SimpleDateFormat filenameFormatter = new SimpleDateFormat(format,
                 Locale.US);
-        Date now = new Date();
+        // Find time of first trackpoint
+        Date firstTkptDate = new Date();
+        for (Trackpoint tkpt : trackpointList) {
+            if (tkpt == null) continue;
+            firstTkptDate = new Date(tkpt.time);
+            break;
+        }
         String fileName;
         if (identifier == null || identifier.isEmpty()) {
-            fileName = "MapImage-" + filenameFormatter.format(now) + ".gpx";
+            fileName =
+                    "MapImage-" + filenameFormatter.format(firstTkptDate) +
+                            ".gpx";
         } else {
             fileName =
-                    "MapImage-" + filenameFormatter.format(now) + "_" + identifier + ".gpx";
+                    "MapImage-" + filenameFormatter.format(firstTkptDate) +
+                            "_" + identifier + ".gpx";
         }
         File file = new File(dir, fileName);
         PrintWriter out = null;
         String line, lat, lon, ele;
         long time;
-        boolean lastTrackpointNull = true;
+        boolean prevTrackpointNull = true;
+        Log.d(TAG, "");
+        int nItem = 0;
+        int size = trackpointList.size();
         try {
             // Write header
             out = new PrintWriter(new FileWriter(file));
             // Write the beginning lines
             out.write(String.format(GPXUtils.GPX_FILE_START_LINES, name,
-                    trackpointFormatter.format(now)));
+                    trackpointFormatter.format(firstTkptDate)));
             for (Trackpoint tkpt : trackpointList) {
+                nItem++;
                 // Make a new segment if the trackpoint is null
                 if (tkpt == null) {
                     // Avoid empty segments
-                    if (lastTrackpointNull) continue;
-                    lastTrackpointNull = true;
+                    if (prevTrackpointNull || nItem == size) continue;
+                    prevTrackpointNull = true;
                     out.write(GPXUtils.GPX_FILE_NEW_SEGMENT);
                     continue;
                 } else {
-                    lastTrackpointNull = false;
+                    prevTrackpointNull = false;
                 }
                 lat = String.format(Locale.US, "%.6f", tkpt.lat);
                 lon = String.format(Locale.US, "%.6f", tkpt.lon);

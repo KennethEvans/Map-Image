@@ -145,7 +145,8 @@ public class MapImageView extends SubsamplingScaleImageView implements
             float strokeWidth =
                     TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
                             dpSize, dm);
-            mPaint.setStrokeWidth(strokeWidth);
+            // If less than 1 pixel then use 0 to get hairline mode
+            mPaint.setStrokeWidth(strokeWidth < 1f ? 0 : strokeWidth);
             canvas.drawLines(pts, mPaint);
         }
         if (mLocationPoint != null && mLocationCursor != null) {
