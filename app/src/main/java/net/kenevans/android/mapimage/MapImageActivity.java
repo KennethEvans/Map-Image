@@ -986,13 +986,23 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
 
         // Set up the input
         final EditText input = new EditText(this);
+        SharedPreferences prefs = PreferenceManager
+                .getDefaultSharedPreferences(this);
+        input.setText(prefs.getString(PREF_GPX_IDENTIFIER, ""));
         input.setInputType(InputType.TYPE_CLASS_TEXT);
         dialog.setView(input);
         dialog.setPositiveButton(R.string.ok,
                 new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        finishGpxSave(input.getText().toString());
+                        String identifier = input.getText().toString();
+                        SharedPreferences.Editor editor = PreferenceManager
+                                .getDefaultSharedPreferences(MapImageActivity
+                                        .this)
+                                .edit();
+                        editor.putString(PREF_GPX_IDENTIFIER, identifier);
+                        editor.apply();
+                        finishGpxSave(identifier);
                     }
                 });
         dialog.setNegativeButton(R.string.cancel,

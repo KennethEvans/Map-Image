@@ -9,14 +9,18 @@
 <p align="left">This application displays images that represent maps. To be useful the maps must have an associated <a href="#calibration">calibration file</a> that assigns the latitude and longitude for the pixels of the map. The current location can then be displayed in Map Image, showing where the user is on the map. The user must supply the image and the calibration file and put them in the app's <a href="#imagedirectory">Image Directory</a>.</p>
 <p align="left">The images can be large as they are implemented by tiles. (See the <a href="#acknowledgement">Acknowledgement</a>.) </p>
 <p align="left">The application does not use a data connection and so can be used in locations where there is no connection, such as out in the woods. It also does not run up data charges.</p>
+<p align="left">Your location is managed through the MapImage Location Service. This service runs when location is started and stops when location is stopped. (See the <a href="#StartStopLocation">Start / Stop Location</a> menu item below.) It runs even though the device is turned off or you go to another application. It exits only when the application stops, usually via the Back button.</p>
+<p align="left">For later versions of Android, there should be a notification in the Notification Bar when it is running.</p>
+<p align="left">When location is started, there is a marker on the image for your current location. You can also optionally show your track on the image. See the <a href="#StartStopTracking">Start / Stop Tracking</a> menu item for more information. </p>
 <h3 align="left">Operations</h3>
 <p align="left">You may zoom the image out using two fingers and pan using one or two fingers. Double tap toggles zooming in and restoring to the default size.</p>
 <p align="left">If the double tap is performed so the second tap is held down and moved, then instead of restoring to the original size, you can continue to zoom in and out about that point with the one finger as long as it is held down. This is similar to a feature of Google Maps. </p>
 <p align="left">The app remembers the image and the last zoom and pan values when it exits, so that it should come back to where you left it when it resumes. It also remembers if location was being used. </p>
 <h3 align="left">Permissions</h3>
 <p align="left">As of Andoid 6.0 (API 23, Marshmallow), permissions requested by an application do not have to be accepted on installation. They can be added or revoked at any time by the user. The application must check whether it has the permissions every time it needs them. Map Image requires permission for FINE_LOCATION in order to use location. It will prompt for this if not granted, or you may change it yourself in the system-wide Application Manager. Map Image will still run and show the maps even if this permission is not granted, but it will not show the current location.</p>
-<p align="left">Map Image also requires permission for READ_EXTERNAL_STORAGE. You should always grant this as the purpose of Map Image requires reading user-supplied files. In the event you do not, you will be prompted once every time Map Image is started, unless you ask to receive no more prompts. Location is disabled when there is no permission for READ_EXTERNAL_STORAGE.</p>
-<p align="left">If you have asked to get no more prompts and you now want to change the permissions, do it manually in the system-wide Application Manager.</p>
+<p align="left">Map Image also requires permission for READ_EXTERNAL_STORAGE and WRITE_EXTERNAL_STORAGE. You should always grant the READ_EXTERNAL_STORAGE permission as the purpose of Map Image requires reading user-supplied files. In the event you do not, you will be prompted once every time Map Image is started, unless you ask to receive no more prompts.</p>
+<p align="left">Location is disabled when there is no permission for READ_EXTERNAL_STORAGE, and you will not be able to save GPS tracks if WRITE_EXTERNAL_STORAGE is not granted.</p>
+<p align="left">In the event MapImage stops after you either grant or deny permission, then restart the app, and the permissions should be granted. If you have asked to get no more prompts and you now want to change the permissions or if there are other problems, do it manually in the system-wide Application Manager under Settings.</p>
 <h3 align="left"><a name="calibration" id="calibration"></a>Calibration</h3>
 <p align="left">The calibration is specified in a text file with lines of the form:</p>
 <p align="left"> integer x, white space, integer y, white space, decimal longitude, white space, decimal latitude.</p>
@@ -24,9 +28,9 @@
 <p align="left"> white space, then a comment.</p>
 <p align="left">x and y are the pixel coordinates in the image, starting at (0, 0) in the upper left and ending at (width-1, height-1) in the lower right. There must be at least three such lines, but there can be as many over this as you like. The app will find the best fit to all the values specified.</p>
 <p align="left">The user must create the .calib file by knowing the latitude and longitude for points in the image. These could be the corners or landmarks.</p>
-<p align="left">One way to determine these values is by placing the image as an overlay in Google Earth (Add | Image Overlay) then adjusting it to match up with what is displayed in Google Earth. You can then put placemarks on the corners and get the latitude and longitude from the placemarks. Use Add Placemark and move the pushpin icon so the point is at each corner in turn. </p>
+<p align="left">One way to determine these values is by placing the image as an overlay in Google Earth (Add | Image Overlay) then adjusting it to match up with what is displayed in Google Earth. You can then put place marks on the corners and get the latitude and longitude from the place marks. Use Add Placemark and move the pushpin icon so the point is at each corner in turn. </p>
 <p align="left">This is an example of a calib file corresponding to an image of width 832 and height 1079. (The calibration points are at the corners in this case):</p>
-<pre align="left">   0     0   -83.603411    42.642879 NW
+<pre>   0     0   -83.603411    42.642879 NW
  831     0   -83.568607    42.643245 NE
  831  1078   -83.568255    42.609770 SE
    0  1078   -83.603059    42.609404 SW
@@ -36,15 +40,23 @@
 <p align="left">The maps must be put in this directory by the user. Any image format accepted by Android may be used. PNG or JPG are most common. In addition, in order to use location, there must be a file with the same prefix, but with the suffix .calib. This file must contain the <a href="#calibration">calibration</a> information. </p>
 <h3 align="left">Menu Items </h3>
 <h4>New Image </h4>
-<p>Allows you to pick a new image among those in the image directory. </p>
+<p>Allows you to pick a new image among those in the image directory. This item may appear as an icon on the title bar. </p>
 <h4>Image from Location</h4>
-<p>Checks all the installed images to see if thewy include the current location and allows you to select one. </p>
-<h4>Start Location </h4>
-<p>Start using location. Starting and stopping location allow you to save battery if desired. The cursor only shows if you are using location and there is a valid location. You do not have to turn off location before exiting. It is turned off when the app exits, and it is restored to what it was before when the app resumes. </p>
-<h4>Stop Location </h4>
-<p>Stop using location. </p>
+<p>Checks all the installed images to see if they include the current location and allows you to select one. </p>
+<h4><a name="StartStopLocation" id="StartStopLocation"></a>Start / Stop Location </h4>
+<p>Start using location. Starting and stopping location allow you to save battery if desired. The cursor only shows if you are using location and there is a valid location. When location is stopped, the MapImage Location Service is not running. </p>
+<h4><a name="StartStopTracking" id="StartStopTracking"></a>Start / Stop Tracking</h4>
+<p>When the MapImage Location Service is running ad tracking is started, it stores locations and shows the GPS track on the image. When tracking is stopped, it no longer stores new locations or shows the track but keeps the locations already there. On restarting tracking, it will show the accumulated locations as a track as well as new track points.</p>
+<p>When tracking is on and the app is paused, locations will continue to be accumulated, and the accumulated locations will continue to be available. Any accumulated locations will be kept until the service stops or Clear Track is performed. </p>
+<h4>Save GPX</h4>
+<p>Save the accumulated locations as a GPX file. You will be prompted for an identifier that will be inserted in the file name. The file name is of the form</p>
+ <pre>&nbsp;&nbsp;&nbsp;&nbsp;MapImage-yyyy-mm-dd_HH-mm-ss[_Identifier].gpx</pre>
+<p>The square brackets are not included and indicate the identifier is optional. Leave the identifier empty if you do not want one. The file will be located in the Download directory for the device. The track will consist of separate track segments for each time tracking is stopped and restarted.</p>
+<p>Tracking does not have to be on to save the GPX file, and it should be safe to stop tracking before saving. It saves the information stored in the service, not what is shown on the image. </p>
+<h4>Clear Track</h4>
+<p>Clears the accumulated locations in the  MapImage Location Service. The tracks will also be cleared and not saved when the service stops. </p>
 <h4>Set Update Interval </h4>
-<p>Set how often the location is updated. Choices are Fastest, Fast, and Slow, corresponding to 0 sec, 1 sec, and 6 sec. The system may not  update as fast in practice as specified. </p>
+<p>Set how often the location is updated. Choices are Fastest, Fast, and Slow, corresponding to 0 sec, 1 sec, and 6 sec. The system may not  update as fast in practice as specified. When using tracking, especially when you want to save a GPX file, it is suggested to use Fast. </p>
 <h4>Info</h4>
 <p>Shows information about the image including its path in the file system and image size, information about the screen size and density, the calibration numbers, the location if it is available, and if the location is within the image. </p>
 <h4>Reset</h4>
