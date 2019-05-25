@@ -868,6 +868,20 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     mMapCalibration = null;
                 }
             }
+            // Reset mTrackPointList with new calib
+            if (mTracking) {
+                if (mLocationService != null) {
+                    mTrackPointList =
+                            getPointsFromTrackpoints(
+                                    mLocationService.mTrackpointList);
+                }
+                if (mTrackPointList == null) {
+                    mTrackPointList = new ArrayList<>();
+                }
+            } else {
+                mTrackPointList = null;
+            }
+            mImageView.setTracks(mTrackPointList);
         }
     }
 
@@ -1172,6 +1186,9 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      */
     private List<PointF> getPointsFromTrackpoints(List<Trackpoint> trackPointList) {
         if (trackPointList == null) {
+            return null;
+        }
+        if (mMapCalibration == null) {
             return null;
         }
         List<PointF> points = new ArrayList<>();
