@@ -10,7 +10,10 @@ public class GPXUtils {
             + "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
             + "<gpx xmlns=\"http://www.topografix.com/GPX/1/1\" " +
             "creator=\"%s\" version=\"1.1\">\n"
-            + "    <metadata>\n" + "        <time>%s</time>\n"
+            + "    <metadata>\n"
+            + "        <time>%s</time>\n"
+            + "        <category>%s</category>\n"
+            + "        <location>%s</location>\n"
             + "    </metadata>\n" + "   <trk>\n" + "        <trkseg>\n";
 
     /**

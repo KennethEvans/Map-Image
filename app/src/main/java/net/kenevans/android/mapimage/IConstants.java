@@ -87,7 +87,10 @@ interface IConstants {
     String SD_CARD_MAP_IMAGE_DIRECTORY = "MapImage";
 
     String PREF_FILENAME = "fileName";
-    String PREF_GPX_IDENTIFIER = "gpxIdentifier";
+    String PREF_GPX_FILENAME_SUFFIX = "gpxFileNameSuffix";
+    String PREF_GPX_FILENAME_PREFIX = "gpxFileNamePrefix";
+    String PREF_GPX_CATEGORY = "gpxCategory";
+    String PREF_GPX_LOCATION = "gpxLocation";
     String PREF_USE_LOCATION = "useLocation";
     String PREF_TRACKING = "tracking";
     String PREF_IMAGE_DIRECTORY = "imageDirectory";

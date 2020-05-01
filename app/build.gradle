@@ -6,8 +6,8 @@ android {
         minSdkVersion 14
         targetSdkVersion 28
         applicationId "net.kenevans.android.mapimage"
-        versionCode 8
-        versionName "3.0.0"
+        versionCode 9
+        versionName "3.1.0"
     }
     buildTypes {
         release {
@@ -29,7 +29,7 @@ android {
 dependencies {
     implementation files('libs/subsampling-scale-image-view-3.10.0.aar')
     implementation files('libs/Jama-1.0.3.jar')
-    implementation 'androidx.exifinterface:exifinterface:1.0.0'
+    implementation 'androidx.exifinterface:exifinterface:1.2.0'
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
-    implementation 'androidx.appcompat:appcompat:1.0.2'
+    implementation 'androidx.appcompat:appcompat:1.1.0'
 }

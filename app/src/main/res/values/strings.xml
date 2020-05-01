@@ -24,7 +24,7 @@
     <string name="update_fast">Fast</string>
     <string name="update_fastest">Fastest</string>
     <string name="update_title">Set Update Interval</string>
-    <string name="add_identifier_title">Add an Identifier to the Filename</string>
+    <string name="gpx_save_title">Add Filename Information\nPrefix, Category, Location, Suffix</string>
 
     <!-- Service -->
     <string name="service_notification_title">MapImage</string>

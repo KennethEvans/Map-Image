@@ -27,10 +27,12 @@ import android.provider.Settings;
 import android.text.InputType;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.WindowManager;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import com.davemorrissey.labs.subscaleview.ImageSource;
@@ -996,27 +998,63 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         }
         // Get an identifier
         AlertDialog.Builder dialog = new AlertDialog.Builder(this);
-        dialog.setTitle(R.string.add_identifier_title);
-
-        // Set up the input
-        final EditText input = new EditText(this);
+        dialog.setTitle(R.string.gpx_save_title);
         SharedPreferences prefs = PreferenceManager
                 .getDefaultSharedPreferences(this);
-        input.setText(prefs.getString(PREF_GPX_IDENTIFIER, ""));
-        input.setInputType(InputType.TYPE_CLASS_TEXT);
-        dialog.setView(input);
+
+        LinearLayout ll = new LinearLayout(this);
+        // Convert to dip
+        int padding = (int) TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                10,
+                getResources().getDisplayMetrics()
+        );
+        ll.setPadding(padding, padding, padding, padding);
+        ll.setOrientation(LinearLayout.VERTICAL);
+
+        final EditText prefixBox = new EditText(this);
+        prefixBox.setHint("Prefix");
+        prefixBox.setInputType(InputType.TYPE_CLASS_TEXT);
+        prefixBox.setText(prefs.getString(PREF_GPX_FILENAME_PREFIX, ""));
+        ll.addView(prefixBox);
+
+        final EditText categoryBox = new EditText(this);
+        categoryBox.setHint("Category");
+        categoryBox.setInputType(InputType.TYPE_CLASS_TEXT);
+        categoryBox.setText(prefs.getString(PREF_GPX_CATEGORY, ""));
+        ll.addView(categoryBox);
+
+        final EditText locationBox = new EditText(this);
+        locationBox.setHint("Location");
+        locationBox.setInputType(InputType.TYPE_CLASS_TEXT);
+        locationBox.setText(prefs.getString(PREF_GPX_LOCATION, ""));
+        ll.addView(locationBox);
+
+        final EditText suffixBox = new EditText(this);
+        suffixBox.setHint("Suffix");
+        suffixBox.setInputType(InputType.TYPE_CLASS_TEXT);
+        suffixBox.setText(prefs.getString(PREF_GPX_FILENAME_SUFFIX, ""));
+        ll.addView(suffixBox);
+
+        dialog.setView(ll);
         dialog.setPositiveButton(R.string.ok,
                 new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        String identifier = input.getText().toString();
+                        String prefix = prefixBox.getText().toString();
+                        String category = categoryBox.getText().toString();
+                        String location = locationBox.getText().toString();
+                        String suffix = suffixBox.getText().toString();
                         SharedPreferences.Editor editor = PreferenceManager
                                 .getDefaultSharedPreferences(MapImageActivity
                                         .this)
                                 .edit();
-                        editor.putString(PREF_GPX_IDENTIFIER, identifier);
+                        editor.putString(PREF_GPX_FILENAME_PREFIX, prefix);
+                        editor.putString(PREF_GPX_CATEGORY, category);
+                        editor.putString(PREF_GPX_LOCATION, location);
+                        editor.putString(PREF_GPX_FILENAME_SUFFIX, suffix);
                         editor.apply();
-                        finishGpxSave(identifier);
+                        finishSaveGpx(prefix, category, location, suffix);
                     }
                 });
         dialog.setNegativeButton(R.string.cancel,
@@ -1029,11 +1067,15 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     }
 
     /**
-     * Finishes the save after getting the identifier.
+     * Finishes the save after getting the paramaters.
      *
-     * @param identifier The identifier.
+     * @param prefix   Prefix for the file name
+     * @param category Category.
+     * @param location Location.
+     * @param suffix   Suffix for the file name
      */
-    private void finishGpxSave(String identifier) {
+    private void finishSaveGpx(String prefix, String category, String location,
+                               String suffix) {
         Log.d(TAG, this.getClass().getSimpleName());
         String msg;
         File dir = Environment.getExternalStoragePublicDirectory(
@@ -1063,16 +1105,21 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             firstTkptDate = new Date(tkpt.time);
             break;
         }
-        String fileName;
-        if (identifier == null || identifier.isEmpty()) {
-            fileName =
-                    "MapImage-" + filenameFormatter.format(firstTkptDate) +
-                            ".gpx";
-        } else {
-            fileName =
-                    "MapImage-" + filenameFormatter.format(firstTkptDate) +
-                            "_" + identifier + ".gpx";
+        if (prefix == null || prefix.isEmpty()) {
+            prefix = "MapImage";
         }
+        String fileName = prefix.replaceAll("\\s+", "_")
+                + "_" + filenameFormatter.format(firstTkptDate);
+        if (category != null && !category.isEmpty()) {
+            fileName += "_" + category.replaceAll("\\s+", "_");
+        }
+        if (location != null && !location.isEmpty()) {
+            fileName += "_" + location.replaceAll("\\s+", "_");
+        }
+        if (suffix != null && !suffix.isEmpty()) {
+            fileName += suffix;
+        }
+        fileName += ".gpx";
         File file = new File(dir, fileName);
         PrintWriter out = null;
         String line, lat, lon, ele;
@@ -1086,7 +1133,9 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             out = new PrintWriter(new FileWriter(file));
             // Write the beginning lines
             out.write(String.format(GPXUtils.GPX_FILE_START_LINES, name,
-                    trackpointFormatter.format(firstTkptDate)));
+                    trackpointFormatter.format(firstTkptDate),
+                    category == null ? "" : category,
+                    location == null ? "" : location));
             for (Trackpoint tkpt : trackpointList) {
                 nItem++;
                 // Make a new segment if the trackpoint is null
