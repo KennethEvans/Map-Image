@@ -18,9 +18,9 @@
 <p align="left">The app remembers the image and the last zoom and pan values when it exits, so that it should come back to where you left it when it resumes. It also remembers if location was being used. </p>
 <h3 align="left">Permissions</h3>
 <p align="left">As of Andoid 6.0 (API 23, Marshmallow), permissions requested by an application do not have to be accepted on installation. They can be added or revoked at any time by the user. The application must check whether it has the permissions every time it needs them. Map Image requires permission for FINE_LOCATION in order to use location. It will prompt for this if not granted, or you may change it yourself in the system-wide Application Manager. Map Image will still run and show the maps even if this permission is not granted, but it will not show the current location.</p>
-<p align="left">Map Image also requires permission for READ_EXTERNAL_STORAGE and WRITE_EXTERNAL_STORAGE. You should always grant the READ_EXTERNAL_STORAGE permission as the purpose of Map Image requires reading user-supplied files. In the event you do not, you will be prompted once every time Map Image is started, unless you ask to receive no more prompts.</p>
-<p align="left">Location is disabled when there is no permission for READ_EXTERNAL_STORAGE, and you will not be able to save GPS tracks if WRITE_EXTERNAL_STORAGE is not granted.</p>
-<p align="left">In the event MapImage stops after you either grant or deny permission, then restart the app, and the permissions should be granted. If you have asked to get no more prompts and you now want to change the permissions or if there are other problems, do it manually in the system-wide Application Manager under Settings.</p>
+<p align="left">Map Image also requires permission for READ_EXTERNAL_STORAGE. You should always grant the READ_EXTERNAL_STORAGE permission as the purpose of Map Image requires reading user-supplied files. In the event you do not, you will be prompted once every time Map Image is started, unless you ask to receive no more prompts.</p>
+<p align="left">Location is disabled when there is no permission for READ_EXTERNAL_STORAGE. This is enforced by the system, not MapImage. </p>
+<p align="left">In the event MapImage stops after you either grant or deny permission, then restart the app. Then the permissions should be granted. If you have asked to get no more prompts and you now want to change the permissions or if there are other problems, do it manually in the system-wide Application Manager under Settings.</p>
 <h3 align="left"><a name="calibration" id="calibration"></a>Calibration</h3>
 <p align="left">The calibration is specified in a text file with lines of the form:</p>
 <p align="left"> integer x, white space, integer y, white space, decimal longitude, white space, decimal latitude.</p>
@@ -36,7 +36,7 @@
    0  1078   -83.603059    42.609404 SW
  </pre>
 <h3 align="left"><a name="imagedirectory" id="imagedirectory"></a>Image Directory</h3>
-<p align="left">The image directory is named MapImage and will be on the internal SD card by defaut. It can be set from the menu in the activity where you choose a new image, and you can choose to set it on the external SD card if there is one. You can also have several and change them via this menu item. </p>
+<p align="left">The image directory is named MapImage and will be on the internal SD card by default. It can be set from the menu in the activity where you choose a new image, and you can choose to set it on the external SD card if there is one. You can also have several and change them via this menu item. </p>
 <p align="left">The maps must be put in this directory by the user. Any image format accepted by Android may be used. PNG or JPG are most common. In addition, in order to use location, there must be a file with the same prefix, but with the suffix .calib. This file must contain the <a href="#calibration">calibration</a> information. </p>
 <h3 align="left">Menu Items </h3>
 <h4>New Image </h4>
@@ -49,9 +49,10 @@
 <p>When the MapImage Location Service is running ad tracking is started, it stores locations and shows the GPS track on the image. When tracking is stopped, it no longer stores new locations or shows the track but keeps the locations already there. On restarting tracking, it will show the accumulated locations as a track as well as new track points.</p>
 <p>When tracking is on and the app is paused, locations will continue to be accumulated, and the accumulated locations will continue to be available. Any accumulated locations will be kept until the service stops or Clear Track is performed. </p>
 <h4>Save GPX</h4>
-<p>Save the accumulated locations as a GPX file. You will be prompted for an identifier that will be inserted in the file name. The file name is of the form</p>
- <pre>&nbsp;&nbsp;&nbsp;&nbsp;MapImage-yyyy-mm-dd_HH-mm-ss[_Identifier].gpx</pre>
-<p>The square brackets are not included and indicate the identifier is optional. Leave the identifier empty if you do not want one. The file will be located in the Download directory for the device. The track will consist of separate track segments for each time tracking is stopped and restarted.</p>
+<p>Save the accumulated locations as a GPX file. You will be prompted for additional, optional componenets of the file name (Prefix, Category, Location, and Suffix) that will be inserted in the file name. The file name is of the form</p>
+ <pre>&nbsp;&nbsp;&nbsp;&nbsp;[Prefix_]-yyyy-mm-dd_HH-mm-ss_[_Category][_Location][Suffix].gpx</pre>
+<p>The square brackets are not included and indicate that component is optional. Leave a component empty in the dialog if you do not want it in the filename. If Prefix is empty, then it will use MapImage as the prefix. After picking the components, you will get a  system file picker letting you choose where to save the file. You can also rename it there. The values for Prefix, Category, Location, and Suffix will be saved for the next use. Note that since the date will be added, these do not have to be changed to make a unique file name. </p>
+<p>The track will consist of separate track segments for each time tracking is stopped and restarted.</p>
 <p>Tracking does not have to be on to save the GPX file, and it should be safe to stop tracking before saving. It saves the information stored in the service, not what is shown on the image. </p>
 <h4>Clear Track</h4>
 <p>Clears the accumulated locations in the  MapImage Location Service. The tracks will also be cleared and not saved when the service stops. </p>

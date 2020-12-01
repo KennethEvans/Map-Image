@@ -1069,13 +1069,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             SimpleDateFormat trackpointFormatter = new SimpleDateFormat(
                     "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
             trackpointFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
-            try {
-                PackageManager pm = getPackageManager();
-                PackageInfo po = pm.getPackageInfo(this.getPackageName(), 0);
-                name = "MapImage " + po.versionName;
-            } catch (Exception ex) {
-                name = "MapImage";
-            }
             // Find time of first trackpoint
             Date firstTkptDate = new Date();
             for (Trackpoint tkpt : trackpointList) {
@@ -1084,7 +1077,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 break;
             }
             if (prefix == null || prefix.isEmpty()) {
-                prefix = name;
+                prefix = "MapImage";
             }
             String date = trackpointFormatter.format(firstTkptDate);
             String fileName = prefix.replaceAll("\\s+", "_")
