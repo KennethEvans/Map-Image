@@ -99,7 +99,11 @@ interface IConstants {
     String PREF_CENTER_X = "centerX";
     String PREF_CENTER_Y = "centerY";
 
-    // Messages
+    /**
+     * Request code for displaying an image.
+     */
+    int DISPLAY_IMAGE_REQ = 0;
+
     /**
      * Request code for FINE_LOCATION.
      */
@@ -116,9 +120,10 @@ interface IConstants {
     int ACCESS_WRITE_EXTERNAL_STORAGE_REQ = 3;
 
     /**
-     * Request code for displaying an image.
+     * Result code for creating a document.
      */
-    int DISPLAY_IMAGE_REQ = 0;
+    int CREATE_DOCUMENT = 10;
+
 
     /**
      * Notification ID for managing notifications.

@@ -52,7 +52,9 @@ public class InfoActivity extends AppCompatActivity implements IConstants {
             Toast.makeText(this, R.string.help_url_not_found,
                     Toast.LENGTH_LONG).show();
         }
-        mWebView.loadUrl(url);
+        if(url != null) {
+            mWebView.loadUrl(url);
+        }
     }
 
     @Override

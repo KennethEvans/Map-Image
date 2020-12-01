@@ -53,7 +53,7 @@ public class MapImageView extends SubsamplingScaleImageView implements
     /**
      * Use this constructor when calling from code.
      *
-     * @param context The contexxt to use.
+     * @param context The context to use.
      */
     public MapImageView(Context context) {
         super(context);

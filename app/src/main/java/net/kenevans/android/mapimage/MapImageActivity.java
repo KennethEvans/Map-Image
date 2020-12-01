@@ -1,6 +1,7 @@
 package net.kenevans.android.mapimage;
 
 import android.Manifest;
+import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
@@ -18,10 +19,12 @@ import android.graphics.BitmapFactory;
 import android.graphics.PointF;
 import android.location.Location;
 import android.location.LocationProvider;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.IBinder;
+import android.os.ParcelFileDescriptor;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.text.InputType;
@@ -70,7 +73,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      * it has not been granted.
      */
     private boolean mPromptForReadExternalStorage = true;
-    private boolean mPromptForWriteExternalStorage = true;
     private MapCalibration mMapCalibration;
     private CharSequence[] mUpdateIntervals;
     private int mUpdateInterval = 0;
@@ -87,26 +89,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     mLocationService = ((MapImageLocationService.LocalBinder)
                             service).getService();
                     mLocationService.setTracking(mTracking);
-//                    if (mDbAdapter != null) {
-//                        mBLECardiacBleService.startDatabase(mDbAdapter);
-//                    }
-                    // Automatically connects to the device upon successful
-                    // start-up
-                    // initialization.
-//                    SharedPreferences prefs = PreferenceManager
-//                            .getDefaultSharedPreferences
-//                                    (DeviceMonitorActivity.this);
-//                    boolean manuallyDisconnected = prefs.getBoolean(
-//                            PREF_MANUALLY_DISCONNECTED, false);
-//                    if (!manuallyDisconnected) {
-//                        boolean res = mBLECardiacBleService.connect
-//                                (mDeviceAddress);
-//                        Log.d(TAG, "Connect mBLECardiacBleService result=" +
-//                                res);
-//                        if (res) {
-//                            setManuallyDisconnected(false);
-//                        }
-//                    }
                 }
 
                 @Override
@@ -305,6 +287,48 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     }
 
     @Override
+    protected void onActivityResult(int requestCode, int resultCode,
+                                    Intent intent) {
+        super.onActivityResult(requestCode, resultCode, intent);
+        // DEBUG
+        Log.d(TAG, this.getClass().getSimpleName()
+                + ".onActivityResult: requestCode=" + requestCode
+                + " resultCode=" + resultCode);
+        if (requestCode == DISPLAY_IMAGE_REQ && resultCode == RESULT_OK) {
+            Bundle extras = intent.getExtras();
+            SharedPreferences.Editor editor = PreferenceManager
+                    .getDefaultSharedPreferences(this)
+                    .edit();
+            try {
+                String filePath = extras.getString(EXTRA_OPEN_FILE_PATH);
+                // Just set the filePath, setNewImage will be done in onResume
+                editor.putString(PREF_FILENAME, filePath);
+            } catch (Exception ex) {
+                Utils.excMsg(this, "Did not get file name from Preferences",
+                        ex);
+            }
+            // Reset the preferences to the defaults
+            editor.putFloat(PREF_CENTER_X, X_DEFAULT);
+            editor.putFloat(PREF_CENTER_Y, Y_DEFAULT);
+            editor.putFloat(PREF_SCALE, SCALE_DEFAULT);
+            editor.apply();
+        } else if (requestCode == CREATE_DOCUMENT && resultCode == Activity.RESULT_OK) {
+            Uri uri;
+            if (intent != null) {
+                uri = intent.getData();
+                List<String> segments = uri.getPathSegments();
+                Uri.Builder builder = new Uri.Builder();
+                for (int i = 0; i < segments.size() - 1; i++) {
+                    builder.appendPath(segments.get(i));
+                }
+                Uri parent = builder.build();
+                Log.d(TAG, "uri=" + uri + " parent=" + parent);
+                doSave(uri);
+            }
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         Log.d(TAG, this.getClass().getSimpleName() + ": onDestroy: " +
                 "mUseLocation="
@@ -348,75 +372,74 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
-        switch (id) {
-            case R.id.open:
-                selectFile();
-                return true;
-            case R.id.open_image_location:
-                openImageForLocation();
-                return true;
-            case R.id.start_location:
+        if (id == R.id.open) {
+            selectFile();
+            return true;
+        } else if (id == R.id.open_image_location) {
+            openImageForLocation();
+            return true;
+        } else if (id == R.id.start_location) {
+            if (mUseLocation) {
+                disableLocation();
+            } else {
+                if (Build.VERSION.SDK_INT >= 23
+                        && ContextCompat.checkSelfPermission(this, Manifest
+                        .permission.READ_EXTERNAL_STORAGE) != PackageManager
+                        .PERMISSION_GRANTED) {
+                    Utils.warnMsg(this, "Location cannot be started if " +
+                            "there" +
+                            " is no permission for READ_EXTERNAL_STORAGE");
+                    return true;
+                }
                 if (mUseLocation) {
-                    disableLocation();
-                } else {
-                    if (Build.VERSION.SDK_INT >= 23
-                            && ContextCompat.checkSelfPermission(this, Manifest
-                            .permission.READ_EXTERNAL_STORAGE) != PackageManager
-                            .PERMISSION_GRANTED) {
-                        Utils.warnMsg(this, "Location cannot be started if " +
-                                "there" +
-                                " is no permission for READ_EXTERNAL_STORAGE");
-                        return true;
-                    }
-                    if (mUseLocation) {
-                        Utils.warnMsg(this, "Location is already started");
-                        return true;
-                    }
-                    mUseLocation = true;
-                    setupLocation();
+                    Utils.warnMsg(this, "Location is already started");
+                    return true;
                 }
-                return true;
-            case R.id.start_tracking:
-                mTracking = !mTracking;
+                mUseLocation = true;
+                setupLocation();
+            }
+            return true;
+        } else if (id == R.id.start_tracking) {
+            mTracking = !mTracking;
+            if (mLocationService != null) {
+                mLocationService.setTracking(mTracking);
+            }
+            // Get the stored trackpoints from the service if any
+            if (mTracking) {
                 if (mLocationService != null) {
-                    mLocationService.setTracking(mTracking);
+                    mTrackPointList =
+                            getPointsFromTrackpoints(
+                                    mLocationService.mTrackpointList);
                 }
-                // Get the stored trackpoints from the service if any
-                if (mTracking) {
-                    if (mLocationService != null) {
-                        mTrackPointList =
-                                getPointsFromTrackpoints(
-                                        mLocationService.mTrackpointList);
-                    }
-                    if (mTrackPointList == null) {
-                        mTrackPointList = new ArrayList<>();
-                    }
-                } else {
-                    mTrackPointList = null;
+                if (mTrackPointList == null) {
+                    mTrackPointList = new ArrayList<>();
                 }
-                mImageView.setTracks(mTrackPointList);
-                return true;
-            case R.id.save_gpx:
-                saveGpx();
-                return true;
-            case R.id.startclear_track:
-                if (mLocationService != null &&
-                        mLocationService.mTrackpointList != null) {
-                    mLocationService.mTrackpointList.clear();
-                }
-                return true;
-            case R.id.set_update_interval:
-                setUpdateInterval();
-                return true;
-            case R.id.image_info:
-                info();
-                return true;
-            case R.id.reset:
-                reset();
-                return true;
-            case R.id.help:
-                showHelp();
-                return true;
+            } else {
+                mTrackPointList = null;
+            }
+            mImageView.setTracks(mTrackPointList);
+            return true;
+        } else if (id == R.id.save_gpx) {
+            saveGpx();
+            return true;
+        } else if (id == R.id.startclear_track) {
+            if (mLocationService != null &&
+                    mLocationService.mTrackpointList != null) {
+                mLocationService.mTrackpointList.clear();
+            }
+            return true;
+        } else if (id == R.id.set_update_interval) {
+            setUpdateInterval();
+            return true;
+        } else if (id == R.id.image_info) {
+            info();
+            return true;
+        } else if (id == R.id.reset) {
+            reset();
+            return true;
+        } else if (id == R.id.help) {
+            showHelp();
+            return true;
         }
         return false;
     }
@@ -558,35 +581,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         }
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode,
-                                    Intent intent) {
-        super.onActivityResult(requestCode, resultCode, intent);
-        // DEBUG
-        Log.d(TAG, this.getClass().getSimpleName()
-                + ".onActivityResult: requestCode=" + requestCode
-                + " resultCode=" + resultCode);
-        if (requestCode == DISPLAY_IMAGE_REQ && resultCode == RESULT_OK) {
-            Bundle extras = intent.getExtras();
-            SharedPreferences.Editor editor = PreferenceManager
-                    .getDefaultSharedPreferences(this)
-                    .edit();
-            try {
-                String filePath = extras.getString(EXTRA_OPEN_FILE_PATH);
-                // Just set the filePath, setNewImage will be done in onResume
-                editor.putString(PREF_FILENAME, filePath);
-            } catch (Exception ex) {
-                Utils.excMsg(this, "Did not get file name from Preferences",
-                        ex);
-            }
-            // Reset the preferences to the defaults
-            editor.putFloat(PREF_CENTER_X, X_DEFAULT);
-            editor.putFloat(PREF_CENTER_Y, Y_DEFAULT);
-            editor.putFloat(PREF_SCALE, SCALE_DEFAULT);
-            editor.apply();
-        }
-    }
-
     /**
      * Show the help.
      */
@@ -680,6 +674,9 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         try {
             if (dir != null) {
                 File[] files = dir.listFiles();
+                Log.d(TAG,
+                        "dir.getPath()=" + dir.getPath()
+                                + " files.length=" + files.length);
                 List<File> fileList = new ArrayList<>();
                 for (File file : files) {
                     if (!file.isDirectory()) {
@@ -752,7 +749,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      * Checks if the current location is within the image in the file.
      *
      * @param file The image file.
-     * @param lat  The latitiude.
+     * @param lat  The latitude.
      * @param lon  The longitude.
      * @return If location is within the image.
      */
@@ -760,10 +757,10 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         // Get the file width and height
         int dWidth, dHeight;
         try {
-            // Get the bitmap domensions without loading the Bitmap
+            // Get the bitmap dimensions without loading the Bitmap
             BitmapFactory.Options bmOptions = new BitmapFactory.Options();
             bmOptions.inJustDecodeBounds = true;
-            Bitmap bitmap = BitmapFactory.decodeFile(file.getPath(), bmOptions);
+            BitmapFactory.decodeFile(file.getPath(), bmOptions);
             dWidth = bmOptions.outWidth;
             dHeight = bmOptions.outHeight;
         } catch (Exception ex) {
@@ -974,19 +971,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             Utils.errMsg(this, "There are no tracks");
             return;
         }
-        // Check WRITE_EXTERNAL_STORAGE
-        if (Build.VERSION.SDK_INT >= 23
-                && ContextCompat.checkSelfPermission(this, Manifest
-                .permission.WRITE_EXTERNAL_STORAGE) != PackageManager
-                .PERMISSION_GRANTED) {
-            if (mPromptForWriteExternalStorage) {
-                requestWriteExternalStoragePermission();
-            } else {
-                Utils.errMsg(this,
-                        "Permission for WRITE_EXTERNAL_STORAGE is not granted");
-            }
-            return;
-        }
 
         String msg;
         String state = Environment.getExternalStorageState();
@@ -1054,7 +1038,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                         editor.putString(PREF_GPX_LOCATION, location);
                         editor.putString(PREF_GPX_FILENAME_SUFFIX, suffix);
                         editor.apply();
-                        finishSaveGpx(prefix, category, location, suffix);
+                        generateSaveIntent(prefix, category, location, suffix);
                     }
                 });
         dialog.setNegativeButton(R.string.cancel,
@@ -1067,75 +1051,121 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     }
 
     /**
-     * Finishes the save after getting the paramaters.
+     * Generates the filename and sets the Intent.
      *
      * @param prefix   Prefix for the file name
      * @param category Category.
      * @param location Location.
      * @param suffix   Suffix for the file name
      */
-    private void finishSaveGpx(String prefix, String category, String location,
-                               String suffix) {
+    private void generateSaveIntent(String prefix, String category,
+                                    String location,
+                                    String suffix) {
         Log.d(TAG, this.getClass().getSimpleName());
-        String msg;
-        File dir = Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOWNLOADS);
-
-        List<Trackpoint> trackpointList = mLocationService.mTrackpointList;
-
-        String name;
-        SimpleDateFormat trackpointFormatter = new SimpleDateFormat(
-                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
-        trackpointFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
         try {
-            PackageManager pm = getPackageManager();
-            PackageInfo po = pm.getPackageInfo(this.getPackageName(), 0);
-            name = "MapImage " + po.versionName;
+            List<Trackpoint> trackpointList = mLocationService.mTrackpointList;
+
+            String name;
+            SimpleDateFormat trackpointFormatter = new SimpleDateFormat(
+                    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+            trackpointFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
+            try {
+                PackageManager pm = getPackageManager();
+                PackageInfo po = pm.getPackageInfo(this.getPackageName(), 0);
+                name = "MapImage " + po.versionName;
+            } catch (Exception ex) {
+                name = "MapImage";
+            }
+            // Find time of first trackpoint
+            Date firstTkptDate = new Date();
+            for (Trackpoint tkpt : trackpointList) {
+                if (tkpt == null) continue;
+                firstTkptDate = new Date(tkpt.time);
+                break;
+            }
+            if (prefix == null || prefix.isEmpty()) {
+                prefix = name;
+            }
+            String date = trackpointFormatter.format(firstTkptDate);
+            String fileName = prefix.replaceAll("\\s+", "_")
+                    + "_" + date;
+            if (category != null && !category.isEmpty()) {
+                fileName += "_" + category.replaceAll("\\s+", "_");
+            }
+            if (location != null && !location.isEmpty()) {
+                fileName += "_" + location.replaceAll("\\s+", "_");
+            }
+            if (suffix != null && !suffix.isEmpty()) {
+                fileName += suffix;
+            }
+            fileName += ".gpx";
+
+            // Generate the Intent
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/gpx+xml");
+            intent.putExtra(Intent.EXTRA_TITLE, fileName);
+            // Set initial directory
+//        if (Build.VERSION.SDK_INT >= 28) {
+//            File sdCardRoot = Environment.getExternalStorageDirectory();
+//            File dir = new File(sdCardRoot, SD_CARD_SUGGESTED_DIR);
+//            Uri.Builder builder = new Uri.Builder();
+//            builder.path(sdCardRoot.getPath())
+//                    .appendPath(SD_CARD_SUGGESTED_DIR);
+//            Uri uri = builder.build();
+//            Uri uriFile = Uri.fromFile(dir);
+//            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI,
+//                    uri);
+//        }
+            startActivityForResult(intent, CREATE_DOCUMENT);
         } catch (Exception ex) {
-            name = "MapImage";
+            Utils.excMsg(this, "Error requesting saving of GPX file", ex);
         }
+    }
 
-        String format = "yyyy-MM-dd_HH-mm-ss";
-        SimpleDateFormat filenameFormatter = new SimpleDateFormat(format,
-                Locale.US);
-        // Find time of first trackpoint
-        Date firstTkptDate = new Date();
-        for (Trackpoint tkpt : trackpointList) {
-            if (tkpt == null) continue;
-            firstTkptDate = new Date(tkpt.time);
-            break;
-        }
-        if (prefix == null || prefix.isEmpty()) {
-            prefix = "MapImage";
-        }
-        String fileName = prefix.replaceAll("\\s+", "_")
-                + "_" + filenameFormatter.format(firstTkptDate);
-        if (category != null && !category.isEmpty()) {
-            fileName += "_" + category.replaceAll("\\s+", "_");
-        }
-        if (location != null && !location.isEmpty()) {
-            fileName += "_" + location.replaceAll("\\s+", "_");
-        }
-        if (suffix != null && !suffix.isEmpty()) {
-            fileName += suffix;
-        }
-        fileName += ".gpx";
-        File file = new File(dir, fileName);
+    /**
+     * Does the actual writing for the save.
+     *
+     * @param uri The Uri to use for writing.
+     */
+    private void doSave(Uri uri) {
+        FileWriter writer = null;
         PrintWriter out = null;
-        String line, lat, lon, ele;
-        long time;
-        boolean prevTrackpointNull = true;
-        Log.d(TAG, "");
-        int nItem = 0;
-        int size = trackpointList.size();
+        String name, msg;
         try {
-            // Write header
-            out = new PrintWriter(new FileWriter(file));
-            // Write the beginning lines
-            out.write(String.format(GPXUtils.GPX_FILE_START_LINES, name,
-                    trackpointFormatter.format(firstTkptDate),
-                    category == null ? "" : category,
-                    location == null ? "" : location));
+            ParcelFileDescriptor pfd = getContentResolver().
+                    openFileDescriptor(uri, "w");
+            writer =
+                    new FileWriter(pfd.getFileDescriptor());
+
+            out = new PrintWriter(writer);
+
+            List<Trackpoint> trackpointList = mLocationService.mTrackpointList;
+            SimpleDateFormat trackpointFormatter = new SimpleDateFormat(
+                    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+            trackpointFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
+            try {
+                PackageManager pm = getPackageManager();
+                PackageInfo po = pm.getPackageInfo(this.getPackageName(), 0);
+                name = "MapImage " + po.versionName;
+            } catch (Exception ex) {
+                name = "MapImage";
+            }
+            Date firstTkptDate = new Date();
+            for (Trackpoint tkpt : trackpointList) {
+                if (tkpt == null) continue;
+                firstTkptDate = new Date(tkpt.time);
+                break;
+            }
+            String date = trackpointFormatter.format(firstTkptDate);
+            String line, lat, lon, ele;
+            long time;
+            boolean prevTrackpointNull = true;
+            Log.d(TAG, "");
+            int nItem = 0;
+            int size = trackpointList.size();
+            // Write header and beginning lines
+            out.write(String.format(GPXUtils.GPX_FILE_START_LINES, name, date));
             for (Trackpoint tkpt : trackpointList) {
                 nItem++;
                 // Make a new segment if the trackpoint is null
@@ -1159,21 +1189,20 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             }
             out.write(GPXUtils.GPX_FILE_END_LINES);
             out.flush();
-            msg = "Wrote " + file.getPath();
+            msg = "Wrote " + uri.getPath();
             Log.d(TAG, msg);
             Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
         } catch (Exception ex) {
-            msg = "Error writing " + file.getPath();
+            msg = "Error writing " + uri.getPath();
             Log.e(TAG, msg);
             Log.e(TAG, Log.getStackTraceString(ex));
             Utils.excMsg(this, msg, ex);
         } finally {
-            if (out != null) {
-                try {
-                    out.close();
-                } catch (Exception ex) {
-                    // Do nothing
-                }
+            try {
+                if (writer != null) writer.close();
+                if (out != null) out.close();
+            } catch (Exception ex) {
+                // No nothing
             }
         }
     }
@@ -1265,7 +1294,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     private void requestReadExternalStoragePermission() {
         Log.d(TAG, this.getClass().getSimpleName() + ": " +
                 "requestReadExternalStoragePermission:");
-        if (Build.VERSION.SDK_INT < 16) return;
         ActivityCompat.requestPermissions(this, new String[]{Manifest
                         .permission.READ_EXTERNAL_STORAGE},
                 ACCESS_READ_EXTERNAL_STORAGE_REQ);
@@ -1277,7 +1305,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     private void requestWriteExternalStoragePermission() {
         Log.d(TAG, this.getClass().getSimpleName() + ": " +
                 "requestWriteExternalStoragePermission:");
-        if (Build.VERSION.SDK_INT < 16) return;
         ActivityCompat.requestPermissions(this, new String[]{Manifest
                         .permission.WRITE_EXTERNAL_STORAGE},
                 ACCESS_WRITE_EXTERNAL_STORAGE_REQ);
@@ -1331,16 +1358,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                             .edit();
                     editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
                     editor.apply();
-                }
-                break;
-            case ACCESS_WRITE_EXTERNAL_STORAGE_REQ:
-                // READ_EXTERNAL_STORAGE
-                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Log.d(TAG, "WRITE_EXTERNAL_STORAGE granted");
-                    mPromptForWriteExternalStorage = true;
-                } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
-                    Log.d(TAG, "WRITE_EXTERNAL_STORAGE denied");
-                    mPromptForWriteExternalStorage = false;
                 }
                 break;
         }

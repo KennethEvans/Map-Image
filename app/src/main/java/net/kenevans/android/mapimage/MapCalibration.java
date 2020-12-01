@@ -15,15 +15,15 @@ import android.content.Context;
 import android.util.Log;
 
 public class MapCalibration implements IConstants {
-    private List<MapData> dataList = new ArrayList<MapData>();
+    private final List<MapData> dataList = new ArrayList<>();
     private MapTransform transform;
-    private Context context;
+    private final Context context;
 
     public MapCalibration(Context context) {
         this.context = context;
     }
 
-    public boolean read(File file) throws NumberFormatException, IOException {
+    public void read(File file) throws NumberFormatException, IOException {
         MapData data;
         BufferedReader in;
         String[] tokens;
@@ -55,7 +55,6 @@ public class MapCalibration implements IConstants {
         in.close();
         // Make the transform
         createTransform();
-        return true;
     }
 
     /**
@@ -223,13 +222,13 @@ public class MapCalibration implements IConstants {
         return dataList;
     }
 
-    public class MapTransform {
-        private double a;
-        private double b;
-        private double c;
-        private double d;
-        private double e;
-        private double f;
+    public static class MapTransform {
+        private final double a;
+        private final double b;
+        private final double c;
+        private final double d;
+        private final double e;
+        private final double f;
 
         public MapTransform(double a, double b, double c, double d, double e,
                             double f) {
@@ -267,11 +266,11 @@ public class MapCalibration implements IConstants {
 
     }
 
-    public class MapData {
-        private int x;
-        private int y;
-        private double lon;
-        private double lat;
+    public static class MapData {
+        private final int x;
+        private final int y;
+        private final double lon;
+        private final double lat;
 
         public MapData(int x, int y, double lon, double lat) {
             this.x = x;

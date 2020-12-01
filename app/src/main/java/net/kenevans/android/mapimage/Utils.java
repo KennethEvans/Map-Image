@@ -38,7 +38,6 @@ public class Utils implements IConstants {
      * @param title   The dialog title.
      * @param msg     The dialog message.
      */
-    @SuppressWarnings("unused")
     public static void alert(Context context, String title, String msg) {
         try {
             AlertDialog alertDialog = new AlertDialog.Builder(context)
@@ -64,7 +63,6 @@ public class Utils implements IConstants {
      * @param context The context.
      * @param msg     The dialog message.
      */
-    @SuppressWarnings("unused")
     public static void errMsg(Context context, String msg) {
         Log.e(TAG, getContextTag(context) + msg);
         alert(context, context.getText(R.string.error).toString(), msg);
@@ -76,7 +74,6 @@ public class Utils implements IConstants {
      * @param context The context.
      * @param msg     The dialog message.
      */
-    @SuppressWarnings("unused")
     public static void warnMsg(Context context, String msg) {
         Log.w(TAG, getContextTag(context) + msg);
         alert(context, context.getText(R.string.warning).toString(), msg);
@@ -88,7 +85,6 @@ public class Utils implements IConstants {
      * @param context The context.
      * @param msg     The dialog message.
      */
-    @SuppressWarnings("unused")
     public static void infoMsg(Context context, String msg) {
         Log.i(TAG, getContextTag(context) + msg);
         alert(context, context.getText(R.string.info).toString(), msg);
@@ -102,7 +98,6 @@ public class Utils implements IConstants {
      * @param msg     The dialog message.
      * @param t       The throwable.
      */
-    @SuppressWarnings("unused")
     public static void excMsg(Context context, String msg, Throwable t) {
         String fullMsg = msg += "\n"
                 + context.getText(R.string.exception).toString() + ": " + t
@@ -118,7 +113,6 @@ public class Utils implements IConstants {
      * @param context The context.
      * @return The context tag.
      */
-    @SuppressWarnings("unused")
     public static String getContextTag(Context context) {
         if (context == null) {
             return "<???>: ";
@@ -127,12 +121,11 @@ public class Utils implements IConstants {
     }
 
     /**
-     * Get the stack trace for a throwble as a String.
+     * Get the stack trace for a throwable as a String.
      *
      * @param t The throwable.
      * @return The stack trace as a String.
      */
-    @SuppressWarnings("unused")
     public static String getStackTraceString(Throwable t) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PrintStream ps = new PrintStream(baos);
@@ -147,7 +140,6 @@ public class Utils implements IConstants {
      * @param file The file.
      * @return The extension without the dot.
      */
-    @SuppressWarnings("unused")
     public static String getExtension(File file) {
         String ext = null;
         String s = file.getName();

@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
@@ -45,12 +46,12 @@ public class MapImageLocationService extends Service implements IConstants {
         }
 
         @Override
-        public void onLocationChanged(Location location) {
-            Log.d(TAG,
-                    "MapImageLocationService: onLocationChanged: mTracking="
-                            + mTracking + " size=" + mTrackpointList.size()
-//                            + "\n    " + location
-            );
+        public void onLocationChanged(@NonNull Location location) {
+//            Log.d(TAG,
+//                    "MapImageLocationService: onLocationChanged: mTracking="
+//                            + mTracking + " size=" + mTrackpointList.size()
+////                            + "\n    " + location
+//            );
             mLastLocation.set(location);
             if (mTracking) {
                 mTrackpointList.add(new Trackpoint(location.getLatitude(),
@@ -65,7 +66,7 @@ public class MapImageLocationService extends Service implements IConstants {
         }
 
         @Override
-        public void onProviderDisabled(String provider) {
+        public void onProviderDisabled(@NonNull String provider) {
             Log.d(TAG,
                     "MapImageLocationService: onProviderDisabled: " + provider);
             final Intent intent = new Intent(ACTION_PROVIDER_DISABLED);
@@ -74,7 +75,7 @@ public class MapImageLocationService extends Service implements IConstants {
         }
 
         @Override
-        public void onProviderEnabled(String provider) {
+        public void onProviderEnabled(@NonNull String provider) {
             Log.d(TAG,
                     "MapImageLocationService: onProviderEnabled: " + provider);
             final Intent intent = new Intent(ACTION_PROVIDER_ENABLED);
@@ -177,7 +178,9 @@ public class MapImageLocationService extends Service implements IConstants {
                     mLocationListener);
             mLocationListener.mLastLocation = mLocationManager
                     .getLastKnownLocation(mProvider);
-            mLocationListener.onLocationChanged(mLocationListener.mLastLocation);
+            if (mLocationListener.mLastLocation != null) {
+                mLocationListener.onLocationChanged(mLocationListener.mLastLocation);
+            }
         } catch (final SecurityException ex) {
             Handler handler = new Handler(Looper.getMainLooper());
             handler.post(new Runnable() {
@@ -249,13 +252,13 @@ public class MapImageLocationService extends Service implements IConstants {
      * @return The notification.
      */
     public Notification getNotification() {
-        String channnelId = createNotificationChannel(this);
+        String channelId = createNotificationChannel(this);
         Intent activityIntent = new Intent(this, MapImageActivity.class);
         PendingIntent viewPendingIntent = PendingIntent.getActivity(this, 0,
                 activityIntent, PendingIntent.FLAG_UPDATE_CURRENT);
         NotificationCompat.Builder notificationBuilder = new
                 NotificationCompat.Builder(
-                this, channnelId)
+                this, channelId)
                 .setSmallIcon(R.drawable.ic_stat_mapimage_notification)
                 .setContentTitle(getString(R.string.service_notification_title))
                 .setContentText(getString(R.string.service_notification_text))
@@ -269,7 +272,7 @@ public class MapImageLocationService extends Service implements IConstants {
 
     public void setTracking(boolean tracking) {
         mTracking = tracking;
-        // Put a null in the trackpoiny list if tracking is truned off
+        // Put a null in the trackpoint list if tracking is turned off
         // Will indicate a new segment
         if (!mTracking && mTrackpointList != null && !mTrackpointList.isEmpty()) {
             mTrackpointList.add(null);

@@ -51,7 +51,7 @@ public class ImageFileListActivity extends AppCompatActivity implements IConstan
      * Holds the list of files.
      */
     private static File[] mFiles;
-    private List<String> mFileNameList = new ArrayList<>();
+    private final List<String> mFileNameList = new ArrayList<>();
     private ListView mListView;
 
     @Override
@@ -78,10 +78,9 @@ public class ImageFileListActivity extends AppCompatActivity implements IConstan
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
-        switch (id) {
-            case R.id.set_image_directory:
-                setImageDirectory();
-                return true;
+        if (id == R.id.set_image_directory) {
+            setImageDirectory();
+            return true;
         }
         return false;
     }
