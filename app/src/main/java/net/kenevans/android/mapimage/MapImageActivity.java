@@ -184,9 +184,10 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         super.onResume();
         Log.d(TAG, this.getClass().getSimpleName()
                 + ": onResume: mUseLocation=" + mUseLocation
-                + " mUpdateInterval=" + mUpdateInterval
-                + "\nmPromptForReadExternalStorage="
-                + mPromptForReadExternalStorage);
+                + " mUpdateInterval=" + mUpdateInterval);
+        Log.d(TAG,
+                "    mPromptForReadExternalStorage=" + mPromptForReadExternalStorage
+                        + " mBroadcastReceiver==null=" + (mBroadcastReceiver == null));
 
         // Restore the state
         SharedPreferences prefs = PreferenceManager
@@ -213,7 +214,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         Log.d(TAG, this.getClass().getSimpleName()
                 + ": onResume (1): mUseLocation=" + mUseLocation
                 + " mUpdateInterval=" + mUpdateInterval
-                + "\nmPromptForReadExternalStorage="
+                + " mPromptForReadExternalStorage="
                 + mPromptForReadExternalStorage);
         String uriStr = prefs.getString(PREF_IMAGE_URI, null);
         Uri uri = null;
@@ -221,7 +222,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             uri = Uri.parse(uriStr);
         }
         Log.d(TAG,
-                "this.getClass().getSimpleName(): onResume: uriStr=" + uriStr);
+                this.getClass().getSimpleName() + ": onResume: uri="
+                        + uri.getLastPathSegment());
         // Check READ_EXTERNAL_STORAGE
         if (Build.VERSION.SDK_INT >= 23
                 && ContextCompat.checkSelfPermission(this, Manifest
@@ -261,7 +263,10 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 bindService(new Intent(this, MapImageLocationService.class),
                         mServiceConnection, BIND_AUTO_CREATE);
             }
-            registerReceiver(mBroadcastReceiver, makeBroadcastIntentFilter());
+            Intent intent = registerReceiver(mBroadcastReceiver,
+                    makeBroadcastIntentFilter());
+            Log.d(TAG, "    registerReceiver returned null="
+                    + (intent == null));
         }
         Log.d(TAG, this.getClass().getSimpleName() + ": onResume (4): end");
     }
@@ -271,7 +276,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         Log.d(TAG, this.getClass().getSimpleName() + ": onPause: " +
                 "mUseLocation="
                 + mUseLocation + " mUpdateInterval=" + mUpdateInterval);
-        Log.d(TAG, "    mBroadcastReceiver=" + mBroadcastReceiver);
+        Log.d(TAG, "    mBroadcastReceiver==null="
+                + (mBroadcastReceiver == null));
         super.onPause();
         SharedPreferences.Editor editor = PreferenceManager
                 .getDefaultSharedPreferences(this)
@@ -529,8 +535,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         } else if (id == R.id.reset) {
             reset();
             return true;
-        } else if (id == R.id.set_image_directory) {
-            getImageDirectory();
+        } else if (id == R.id.choose_image_directory) {
+            chooseImageDirectory();
             return true;
         } else if (id == R.id.help) {
             showHelp();
@@ -1336,7 +1342,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     /**
      * Brings up a system file chooser to get the image directory
      */
-    private void getImageDirectory() {
+    private void chooseImageDirectory() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION &
                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
@@ -1351,7 +1357,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      * @return The calibration Uri.
      */
     private Uri getCalibUri(Uri uri) {
-        Log.d(TAG, "getCalibUri: uri=" + uri.getLastPathSegment());
+//        Log.d(TAG, "getCalibUri: uri=" + uri.getLastPathSegment());
         if (uri == null) return null;
         Uri calibUri = null;
         String uriStr = uri.toString();

@@ -23,7 +23,7 @@ public class UriUtils implements IConstants {
      */
     public static boolean exists(Context context, Uri uri) {
         // !!!!!!!!!!!!!!!!!!!!! A kludge. Needs to be tested.
-        Log.d(TAG, "exists: uri=" + uri.getLastPathSegment());
+//        Log.d(TAG, "exists: uri=" + uri.getLastPathSegment());
         try (Cursor cursor = context.getContentResolver().query(uri,
                 null, null, null, null)) {
             return (cursor != null && cursor.moveToFirst());
@@ -40,12 +40,14 @@ public class UriUtils implements IConstants {
      * @return The name.
      */
     public static String getDisplayName(Context context, Uri uri) {
-        String displayName;
+        String displayName = null;
         try (Cursor cursor = context.getContentResolver().query(uri, null, null,
                 null, null)) {
             cursor.moveToFirst();
             displayName =
                     cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+        } catch(Exception ex) {
+            Utils.excMsg(context, "Error getting display name", ex);
         }
         return displayName;
     }

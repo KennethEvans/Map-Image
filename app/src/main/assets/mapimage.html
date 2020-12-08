@@ -36,17 +36,17 @@
    0  1078   -83.603059    42.609404 SW
  </pre>
 <h3 align="left"><a name="imagedirectory" id="imagedirectory"></a>Image Directory</h3>
-<p align="left">The image directory is named MapImage and will be on the internal SD card by default. It can be set from the menu in the activity where you choose a new image, and you can choose to set it on the external SD card if there is one. You can also have several and change them via this menu item. </p>
-<p align="left">The maps must be put in this directory by the user. Any image format accepted by Android may be used. PNG or JPG are most common. In addition, in order to use location, there must be a file with the same prefix, but with the suffix .calib. This file must contain the <a href="#calibration">calibration</a> information. </p>
+<p align="left">The image directory is the directory where all your images and calibration files are stored.  You need to allow MapImage access to this directory by selecting it in a system file chooser.  You do this with the &quot;Get Image Directory&quot; menu item.  The directory can be on the external SD card. You can use this to switch to different directories with different images, if you like.</p>
+<p align="left">The maps must be put in this directory by the user. PNG, JPG, and GIF are accepted. In addition, in order to use location, there must be a file with the same prefix, but with the suffix .calib. This file must contain the <a href="#calibration">calibration</a> information. </p>
 <h3 align="left">Menu Items </h3>
 <h4>New Image </h4>
 <p>Allows you to pick a new image among those in the image directory. This item may appear as an icon on the title bar. </p>
-<h4>Image from Location</h4>
+<h4>Image at Location</h4>
 <p>Checks all the installed images to see if they include the current location and allows you to select one. </p>
 <h4><a name="StartStopLocation" id="StartStopLocation"></a>Start / Stop Location </h4>
 <p>Start using location. Starting and stopping location allow you to save battery if desired. The cursor only shows if you are using location and there is a valid location. When location is stopped, the MapImage Location Service is not running. </p>
 <h4><a name="StartStopTracking" id="StartStopTracking"></a>Start / Stop Tracking</h4>
-<p>When the MapImage Location Service is running ad tracking is started, it stores locations and shows the GPS track on the image. When tracking is stopped, it no longer stores new locations or shows the track but keeps the locations already there. On restarting tracking, it will show the accumulated locations as a track as well as new track points.</p>
+<p>When the MapImage Location Service is running ad tracking is started, MapImage stores locations and shows the GPS track on the image. When tracking is stopped, it no longer stores new locations or shows the track but keeps the locations already there. On restarting tracking, it will show the accumulated locations as a track as well as new track points.</p>
 <p>When tracking is on and the app is paused, locations will continue to be accumulated, and the accumulated locations will continue to be available. Any accumulated locations will be kept until the service stops or Clear Track is performed. </p>
 <h4>Save GPX</h4>
 <p>Save the accumulated locations as a GPX file. You will be prompted for additional, optional componenets of the file name (Prefix, Category, Location, and Suffix) that will be inserted in the file name. The file name is of the form</p>
@@ -62,6 +62,8 @@
 <p>Shows information about the image including its path in the file system and image size, information about the screen size and density, the calibration numbers, the location if it is available, and if the location is within the image. </p>
 <h4>Reset</h4>
 <p>Re-scales and centers the image. This can also be accomplished by double tapping the image. </p>
+<h4>Choose Image Directory </h4>
+<p>Use a system file chooser to select the directory with your images and allow MapImage permission to use it. </p>
 <h4>Help</h4>
 <p>Displays this page.</p>
 <h3 align="left"><a name="acknowledgement" id="acknowledgement"></a>Acknowledgement</h3>
