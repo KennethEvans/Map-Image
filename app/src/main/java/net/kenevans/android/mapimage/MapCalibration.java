@@ -1,18 +1,18 @@
 package net.kenevans.android.mapimage;
 
+import android.content.Context;
+import android.net.Uri;
+import android.util.Log;
+
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 import Jama.Matrix;
 import Jama.SingularValueDecomposition;
-
-import android.content.Context;
-import android.util.Log;
 
 public class MapCalibration implements IConstants {
     private final List<MapData> dataList = new ArrayList<>();
@@ -23,36 +23,38 @@ public class MapCalibration implements IConstants {
         this.context = context;
     }
 
-    public void read(File file) throws NumberFormatException, IOException {
+    public void read(Uri uri) throws NumberFormatException, IOException {
         MapData data;
-        BufferedReader in;
         String[] tokens;
         int x, y;
         double lon, lat;
-        in = new BufferedReader(new FileReader(file));
-        String line;
-        while ((line = in.readLine()) != null) {
-            tokens = line.trim().split("\\s+");
-            // Skip blank lines
-            if (tokens.length == 0) {
-                continue;
+        try (InputStreamReader inputStreamReader = new InputStreamReader(
+                context.getContentResolver().openInputStream(uri));
+             BufferedReader in = new BufferedReader(inputStreamReader)) {
+            String line;
+            while ((line = in.readLine()) != null) {
+                tokens = line.trim().split("\\s+");
+                // Skip blank lines
+                if (tokens.length == 0) {
+                    continue;
+                }
+                // Skip lines starting with #
+                if (tokens[0].trim().startsWith("#")) {
+                    continue;
+                }
+                x = Integer.parseInt(tokens[0]);
+                y = Integer.parseInt(tokens[1]);
+                lon = Double.parseDouble(tokens[2]);
+                lat = Double.parseDouble(tokens[3]);
+                // DEBUG
+                // System.out.println(String.format("x=%d y=%d lon=%.6f lat=%
+                // .6f",
+                // x,
+                // y, lon, lat));
+                data = new MapData(x, y, lon, lat);
+                dataList.add(data);
             }
-            // Skip lines starting with #
-            if (tokens[0].trim().startsWith("#")) {
-                continue;
-            }
-            x = Integer.parseInt(tokens[0]);
-            y = Integer.parseInt(tokens[1]);
-            lon = Double.parseDouble(tokens[2]);
-            lat = Double.parseDouble(tokens[3]);
-            // DEBUG
-            // System.out.println(String.format("x=%d y=%d lon=%.6f lat=%.6f",
-            // x,
-            // y, lon, lat));
-            data = new MapData(x, y, lon, lat);
-            dataList.add(data);
         }
-        in.close();
         // Make the transform
         createTransform();
     }

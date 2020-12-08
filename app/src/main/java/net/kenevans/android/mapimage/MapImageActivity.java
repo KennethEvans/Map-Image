@@ -2,7 +2,6 @@ package net.kenevans.android.mapimage;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -42,12 +41,11 @@ import com.davemorrissey.labs.subscaleview.ImageSource;
 
 import net.kenevans.android.mapimage.MapCalibration.MapData;
 
-import java.io.File;
 import java.io.FileWriter;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -217,8 +215,13 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 + " mUpdateInterval=" + mUpdateInterval
                 + "\nmPromptForReadExternalStorage="
                 + mPromptForReadExternalStorage);
-        String fileName = prefs.getString(PREF_FILENAME, null);
-        Log.d(TAG, "  fileName=" + fileName);
+        String uriStr = prefs.getString(PREF_IMAGE_URI, null);
+        Uri uri = null;
+        if (uriStr != null) {
+            uri = Uri.parse(uriStr);
+        }
+        Log.d(TAG,
+                "this.getClass().getSimpleName(): onResume: uriStr=" + uriStr);
         // Check READ_EXTERNAL_STORAGE
         if (Build.VERSION.SDK_INT >= 23
                 && ContextCompat.checkSelfPermission(this, Manifest
@@ -237,14 +240,14 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         Log.d(TAG, this.getClass().getSimpleName()
                 + ": onResume (3): mUseLocation=" + mUseLocation
                 + " mUpdateInterval=" + mUpdateInterval
-                + "\nmPromptForReadExternalStorage="
+                + " mPromptForReadExternalStorage="
                 + mPromptForReadExternalStorage);
-        if (fileName == null) {
+        if (uri == null) {
             mMapCalibration = null;
             setNoImage();
         } else {
             if (mImageView != null) {
-                setNewImage(fileName);
+                setNewImage(uri);
                 float x = prefs.getFloat(PREF_CENTER_X, X_DEFAULT);
                 float y = prefs.getFloat(PREF_CENTER_Y, Y_DEFAULT);
                 float scale = prefs.getFloat(PREF_SCALE, SCALE_DEFAULT);
@@ -260,6 +263,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             }
             registerReceiver(mBroadcastReceiver, makeBroadcastIntentFilter());
         }
+        Log.d(TAG, this.getClass().getSimpleName() + ": onResume (4): end");
     }
 
     @Override
@@ -267,6 +271,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         Log.d(TAG, this.getClass().getSimpleName() + ": onPause: " +
                 "mUseLocation="
                 + mUseLocation + " mUpdateInterval=" + mUpdateInterval);
+        Log.d(TAG, "    mBroadcastReceiver=" + mBroadcastReceiver);
         super.onPause();
         SharedPreferences.Editor editor = PreferenceManager
                 .getDefaultSharedPreferences(this)
@@ -283,7 +288,14 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             }
         }
         editor.apply();
-        unregisterReceiver(mBroadcastReceiver);
+        try {
+            if (mBroadcastReceiver != null)
+                unregisterReceiver(mBroadcastReceiver);
+        } catch (Exception ex) {
+            Log.d(TAG, this.getClass().getSimpleName()
+                    + ": unregisterReceiver: exception");
+        }
+        Log.d(TAG, this.getClass().getSimpleName() + ": onPause: end");
     }
 
     @Override
@@ -294,15 +306,15 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         Log.d(TAG, this.getClass().getSimpleName()
                 + ".onActivityResult: requestCode=" + requestCode
                 + " resultCode=" + resultCode);
-        if (requestCode == DISPLAY_IMAGE_REQ && resultCode == RESULT_OK) {
+        if (requestCode == REQ_DISPLAY_IMAGE && resultCode == RESULT_OK) {
             Bundle extras = intent.getExtras();
             SharedPreferences.Editor editor = PreferenceManager
                     .getDefaultSharedPreferences(this)
                     .edit();
             try {
-                String filePath = extras.getString(EXTRA_OPEN_FILE_PATH);
+                String imageUri = extras.getString(EXTRA_IMAGE_URI);
                 // Just set the filePath, setNewImage will be done in onResume
-                editor.putString(PREF_FILENAME, filePath);
+                editor.putString(PREF_IMAGE_URI, imageUri);
             } catch (Exception ex) {
                 Utils.excMsg(this, "Did not get file name from Preferences",
                         ex);
@@ -312,7 +324,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             editor.putFloat(PREF_CENTER_Y, Y_DEFAULT);
             editor.putFloat(PREF_SCALE, SCALE_DEFAULT);
             editor.apply();
-        } else if (requestCode == CREATE_DOCUMENT && resultCode == Activity.RESULT_OK) {
+        } else if (requestCode == REQ_CREATE_DOCUMENT &&
+                resultCode == Activity.RESULT_OK) {
             Uri uri;
             if (intent != null) {
                 uri = intent.getData();
@@ -325,7 +338,25 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 Log.d(TAG, "uri=" + uri + " parent=" + parent);
                 doSave(uri);
             }
+        } else if (requestCode == REQ_GET_TREE && resultCode == RESULT_OK) {
+            Uri treeUri;
+            // Get Uri from Storage Access Framework.
+            treeUri = intent.getData();
+            // Keep them from accumulating
+            UriUtils.releaseAllPermissions(this);
+            SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
+                    .edit();
+            editor.putString(PREF_TREE_URI, treeUri.toString());
+            editor.apply();
+
+            // Persist access permissions.
+            final int takeFlags = intent.getFlags()
+                    & (Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            this.getContentResolver().takePersistableUriPermission(treeUri,
+                    takeFlags);
         }
+
     }
 
     @Override
@@ -337,16 +368,77 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         // Unbind the service if it is bound
         unbindService(mServiceConnection);
         mLocationService = null;
-//        if (mDbAdapter != null) {
-//            mDbAdapter.close();
-//            mDbAdapter = null;
-//        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[]
+                                                   permissions,
+                                           @NonNull int[] grantResults) {
+        Log.d(TAG, this.getClass().getSimpleName() + ": " +
+                "onRequestPermissionsResult:" + " permissions=" +
+                permissions[0]
+                + "\ngrantResults=" + grantResults[0]
+                + "\nmUseLocation=" + mUseLocation
+                + "\nmPromptForReadExternalStorage="
+                + mPromptForReadExternalStorage);
+        switch (requestCode) {
+            case REQ_ACCESS_FINE_LOCATION:
+                // FINE_LOCATION
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.d(TAG, "FINE_LOCATION granted");
+                    if (mUseLocation) {
+                        setupLocation();
+                    }
+                } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
+                    Log.d(TAG, "FINE_LOCATION denied");
+                    mUseLocation = false;
+                    // Save this as onResume will be called next, not
+                    // onPause
+                    SharedPreferences.Editor editor = PreferenceManager
+                            .getDefaultSharedPreferences(this)
+                            .edit();
+                    editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
+                    editor.apply();
+                }
+                break;
+            case REQ_ACCESS_READ_EXTERNAL_STORAGE:
+                // READ_EXTERNAL_STORAGE
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.d(TAG, "READ_EXTERNAL_STORAGE granted");
+                    mPromptForReadExternalStorage = true;
+                } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
+                    Log.d(TAG, "READ_EXTERNAL_STORAGE denied");
+                    mPromptForReadExternalStorage = false;
+                    mUseLocation = false;
+                    // Save this as onResume will be called next, not
+                    // onPause
+                    SharedPreferences.Editor editor = PreferenceManager
+                            .getDefaultSharedPreferences(this)
+                            .edit();
+                    editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
+                    editor.apply();
+                }
+                break;
+        }
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main_menu, menu);
+
+        // Capture global exceptions
+        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(@NonNull Thread paramThread,
+                                          @NonNull Throwable paramThrowable) {
+                Log.e(TAG, "Unexpected exception:", paramThrowable);
+                // Any non-zero exit code
+                System.exit(2);
+            }
+        });
+
         return true;
     }
 
@@ -373,7 +465,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.open) {
-            selectFile();
+            selectImage();
             return true;
         } else if (id == R.id.open_image_location) {
             openImageForLocation();
@@ -437,6 +529,9 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         } else if (id == R.id.reset) {
             reset();
             return true;
+        } else if (id == R.id.set_image_directory) {
+            getImageDirectory();
+            return true;
         } else if (id == R.id.help) {
             showHelp();
             return true;
@@ -488,72 +583,77 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             return;
         }
         try {
-            String info = "";
+            StringBuilder info = new StringBuilder();
             // Filename
             SharedPreferences prefs = PreferenceManager
                     .getDefaultSharedPreferences(this);
-            String fileName = prefs.getString(PREF_FILENAME, null);
-            if (fileName == null) {
-                info += "No file name\n";
+            String uriStr = prefs.getString(PREF_IMAGE_URI, null);
+            if (uriStr == null) {
+                info.append("No file name\n");
             } else {
-                info += fileName + "\n";
+                Uri uri = Uri.parse(uriStr);
+                if (uri == null) {
+                    info.append("No file name\n");
+                } else {
+                    info.append(UriUtils.getDisplayName(this, uri)).append(
+                            "\n");
+                }
             }
             int dWidth = mImageView.getSWidth();
             int dHeight = mImageView.getSHeight();
-            info += String.format(Locale.US, "%d x %d\n", dWidth, dHeight);
+            info.append(String.format(Locale.US, "%d x %d\n", dWidth, dHeight));
 
             // Get screen size and density
             DisplayMetrics metrics = getResources().getDisplayMetrics();
             if (metrics != null) {
-                info += "Screen Size " + metrics.widthPixels + "x" + metrics
-                        .heightPixels
-                        + " densityDpi " + metrics.densityDpi + " " + "\n";
+                info.append("Screen Size ").append(metrics.widthPixels).append("x").append(metrics
+                        .heightPixels).append(" densityDpi ").append(metrics.densityDpi).append(" ").append("\n");
             }
             // Calibration
             if (mMapCalibration == null || mMapCalibration.getTransform() ==
                     null) {
-                info += "Not calibrated\n";
+                info.append("Not calibrated\n");
             } else {
-                info += "Calibrated\n";
+                info.append("Calibrated\n");
                 List<MapData> dataList = mMapCalibration.getDataList();
                 if (dataList != null) {
                     for (MapData data : dataList) {
-                        info += String.format(Locale.US,
+                        info.append(String.format(Locale.US,
                                 "  %04d   %04d  %11.6f %11.6f\n",
                                 data.getX(), data.getY(), +data.getLon(),
-                                data.getLat());
+                                data.getLat()));
                     }
                 }
             }
             // Location
             if (!mUseLocation) {
-                info += "Not using location\n";
+                info.append("Not using location\n");
             } else {
                 if (mLocation == null) {
-                    info += "No location available\n";
+                    info.append("No location available\n");
                 } else {
                     double lon = mLocation.getLongitude();
                     double lat = mLocation.getLatitude();
                     float accuracy = mLocation.getAccuracy();
-                    info += String.format(Locale.US,
+                    info.append(String.format(Locale.US,
                             "Location %.6f, %.6f +/- %.2f m",
                             mLocation.getLongitude(), mLocation.getLatitude(),
-                            accuracy);
+                            accuracy));
                     try {
                         int[] locationVals = mMapCalibration.inverse(lon, lat);
                         if (locationVals != null) {
-                            info += String.format(Locale.US, " @ (%d, %d)\n",
+                            info.append(String.format(Locale.US, " @ (%d, %d)" +
+                                            "\n",
                                     locationVals[0],
-                                    locationVals[1]);
+                                    locationVals[1]));
                             if (locationVals[0] < 0
                                     || locationVals[0] >= dWidth
                                     || locationVals[1] < 0
                                     || locationVals[1] >= dHeight) {
-                                info += "Not within the image\n";
+                                info.append("Not within the image\n");
                             }
                         } else {
-                            info += "\n    Error getting location image " +
-                                    "coordinates\n";
+                            info.append("\n    Error getting location image " + "coordinates\n");
                         }
                     } catch (Exception ex) {
                         // Do nothing
@@ -564,7 +664,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     && ContextCompat.checkSelfPermission(this, Manifest
                     .permission.READ_EXTERNAL_STORAGE) != PackageManager
                     .PERMISSION_GRANTED) {
-                info += "No permission granted for READ_EXTERNAL_STORAGE\n";
+                info.append("No permission granted for " +
+                        "READ_EXTERNAL_STORAGE\n");
             }
             if (Build.VERSION.SDK_INT >= 23
                     && ContextCompat.checkSelfPermission(this, Manifest
@@ -573,9 +674,9 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     && ContextCompat.checkSelfPermission(this, Manifest
                     .permission.ACCESS_FINE_LOCATION) != PackageManager
                     .PERMISSION_GRANTED) {
-                info += "No permission granted for ACCESS_FINE_LOCATION\n";
+                info.append("No permission granted for ACCESS_FINE_LOCATION\n");
             }
-            Utils.infoMsg(this, info);
+            Utils.infoMsg(this, info.toString());
         } catch (Throwable t) {
             Utils.excMsg(this, "Error showing info", t);
         }
@@ -599,9 +700,9 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     }
 
     /**
-     * Brings up a list of files to open.
+     * Brings up an ImageListActivity with a list of files to open.
      */
-    private void selectFile() {
+    private void selectImage() {
         if (Build.VERSION.SDK_INT >= 23
                 && ContextCompat.checkSelfPermission(this, Manifest
                 .permission.READ_EXTERNAL_STORAGE) != PackageManager
@@ -618,10 +719,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             return;
         }
         Intent i = new Intent(this, ImageFileListActivity.class);
-        Log.d(TAG, this.
-                getClass().
-                getSimpleName() + ".selectFile");
-        startActivityForResult(i, DISPLAY_IMAGE_REQ);
+        Log.d(TAG, this.getClass().getSimpleName() + ".selectFile");
+        startActivityForResult(i, REQ_DISPLAY_IMAGE);
     }
 
     /**
@@ -669,44 +768,24 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         double lat = mLocation.getLatitude();
 
         // Get the list of files
-        File dir = ImageFileListActivity.getImageDirectory(this);
-        File[] filesArray = null;
-        try {
-            if (dir != null) {
-                File[] files = dir.listFiles();
-                Log.d(TAG,
-                        "dir.getPath()=" + dir.getPath()
-                                + " files.length=" + files.length);
-                List<File> fileList = new ArrayList<>();
-                for (File file : files) {
-                    if (!file.isDirectory()) {
-                        String ext = Utils.getExtension(file);
-                        if (ext.equals("jpg") || ext.equals("jpeg")
-                                || ext.equals("png") || ext.equals("gif")) {
-                            if (fileContainsLocation(file, lat, lon)) {
-                                fileList.add(file);
-                            }
-                        }
-                    }
-                }
-                Collections.sort(fileList);
-                filesArray = new File[fileList.size()];
-                fileList.toArray(filesArray);
+        List<ImageFileListActivity.UriData> fileList =
+                ImageFileListActivity.getUriList(this);
+        Log.d(TAG, " fileList.size()=" + fileList.size());
+        final List<ImageFileListActivity.UriData> foundList = new ArrayList<>();
+        for (ImageFileListActivity.UriData uriData : fileList) {
+            if (fileContainsLocation(uriData.uri, lat, lon)) {
+                foundList.add(uriData);
             }
-        } catch (Exception ex) {
-            Utils.excMsg(this, "Failed to get list of available files", ex);
-            return;
         }
-        if (filesArray == null || filesArray.length == 0) {
+        if (foundList.size() == 0) {
             Utils.infoMsg(this, "No images contain the current location");
             return;
         }
 
         // Prompt for the file to use
-        final File[] files = filesArray;
-        final CharSequence[] items = new CharSequence[files.length];
-        for (int i = 0; i < files.length; i++) {
-            items[i] = files[i].getName();
+        final CharSequence[] items = new CharSequence[foundList.size()];
+        for (int i = 0; i < foundList.size(); i++) {
+            items[i] = foundList.get(i).displayName;
         }
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(getText(R.string.open_image_location_title));
@@ -715,23 +794,23 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     public void onClick(DialogInterface dialog, final int
                             item) {
                         dialog.dismiss();
-                        if (item < 0 || item >= files.length) {
+                        if (item < 0 || item >= foundList.size()) {
                             Utils.errMsg(MapImageActivity.this,
                                     "Invalid item");
                             return;
                         }
-                        String filePath = files[item].getPath();
                         SharedPreferences.Editor editor = PreferenceManager
                                 .getDefaultSharedPreferences(MapImageActivity
                                         .this)
                                 .edit();
-                        editor.putString(PREF_FILENAME, filePath);
+                        editor.putString(PREF_IMAGE_URI,
+                                foundList.get(item).uri.toString());
                         // Reset the preferences to the defaults
                         editor.putFloat(PREF_CENTER_X, X_DEFAULT);
                         editor.putFloat(PREF_CENTER_Y, Y_DEFAULT);
                         editor.putFloat(PREF_SCALE, SCALE_DEFAULT);
                         editor.apply();
-                        setNewImage(filePath);
+                        setNewImage(foundList.get(item).uri);
                     }
                 });
         builder.setNegativeButton("Cancel",
@@ -748,19 +827,21 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     /**
      * Checks if the current location is within the image in the file.
      *
-     * @param file The image file.
-     * @param lat  The latitude.
-     * @param lon  The longitude.
+     * @param uri The Uri for the image file.
+     * @param lat The latitude.
+     * @param lon The longitude.
      * @return If location is within the image.
      */
-    private boolean fileContainsLocation(File file, double lat, double lon) {
+    private boolean fileContainsLocation(Uri uri, double lat, double lon) {
         // Get the file width and height
         int dWidth, dHeight;
-        try {
+        Uri calibUri;
+        try (InputStream inputStream =
+                     getContentResolver().openInputStream(uri)) {
             // Get the bitmap dimensions without loading the Bitmap
             BitmapFactory.Options bmOptions = new BitmapFactory.Options();
             bmOptions.inJustDecodeBounds = true;
-            BitmapFactory.decodeFile(file.getPath(), bmOptions);
+            BitmapFactory.decodeStream(inputStream, null, bmOptions);
             dWidth = bmOptions.outWidth;
             dHeight = bmOptions.outHeight;
         } catch (Exception ex) {
@@ -772,21 +853,14 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         }
 
         // See if there is a calibration file
+        calibUri = getCalibUri(uri);
         MapCalibration mapCalibration = null;
-        String filePath = file.getPath();
-        int i = filePath.lastIndexOf('.');
-        String baseName;
-        if (i > 0) {
-            baseName = filePath.substring(0, i + 1);
-            String calibFileName = baseName + CALIB_EXT;
-            File calibFile = new File(calibFileName);
-            if (calibFile.exists()) {
-                mapCalibration = new MapCalibration(this);
-                try {
-                    mapCalibration.read(calibFile);
-                } catch (Exception ex) {
-                    mapCalibration = null;
-                }
+        if (calibUri != null && UriUtils.exists(this, calibUri)) {
+            mapCalibration = new MapCalibration(this);
+            try {
+                mapCalibration.read(calibUri);
+            } catch (Exception ex) {
+                mapCalibration = null;
             }
         }
         if (mapCalibration == null) {
@@ -807,10 +881,9 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     /**
      * Sets a new image from the given filename.
      *
-     * @param filePath The path of the file to open.
+     * @param uri The Uri of the file to open.
      */
-
-    private void setNewImage(String filePath) {
+    private void setNewImage(Uri uri) {
         if (Build.VERSION.SDK_INT >= 23
                 && ContextCompat.checkSelfPermission(this, Manifest
                 .permission.READ_EXTERNAL_STORAGE) != PackageManager
@@ -829,78 +902,74 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         if (mImageView == null) {
             return;
         }
-        if (filePath == null) {
+        if (uri == null) {
             Log.d(TAG, this.getClass().getSimpleName()
-                    + "setNewImage: File is null");
-            Utils.errMsg(this, "File is null");
+                    + "setNewImage: Image Uri is null");
+            Utils.errMsg(this, "Image Uri is null");
             return;
         }
-        File file = new File(filePath);
-        if (!file.exists()) {
+        String lastSeg = uri.getLastPathSegment();
+        if (!UriUtils.exists(this, uri)) {
+            String msg = "File does not exist " + lastSeg;
             Log.d(TAG, this.getClass().getSimpleName()
-                    + "setNewImage: File does not exist " + file.getPath());
-            Utils.errMsg(this, "File does not exist " + file.getPath());
+                    + "setNewImage: " + msg);
+            Utils.errMsg(this, msg);
             return;
         }
         mMapCalibration = null;
         setNoImage();
-        mImageView.setImage(ImageSource.uri(file.getPath()));
+        mImageView.setImage(ImageSource.uri(uri));
         // See if there is a calibration file
-        int i = filePath.lastIndexOf('.');
-        String baseName;
-        if (i > 0) {
-            baseName = filePath.substring(0, i + 1);
-            String calibFileName = baseName + CALIB_EXT;
-            File calibFile = new File(calibFileName);
-            Log.d(TAG,
-                    this.getClass().getSimpleName()
-                            + ".setNewImage: calibFile=" + calibFileName
-                            + (calibFile.exists() ? " exists" : " not found"));
-            if (calibFile.exists()) {
-                mMapCalibration = new MapCalibration(this);
-                try {
-                    mMapCalibration.read(calibFile);
-                } catch (Exception ex) {
-                    // Have to use Exception because NumberFormatException might
-                    // be wrapped in an InvocationTargetException
-                    Utils.excMsg(this, "Error reading calibration file", ex);
-                    mMapCalibration = null;
-                }
-            }
-            // Reset mTrackPointList with new calib
-            if (mTracking) {
-                if (mLocationService != null) {
-                    mTrackPointList =
-                            getPointsFromTrackpoints(
-                                    mLocationService.mTrackpointList);
-                }
-                if (mTrackPointList == null) {
-                    mTrackPointList = new ArrayList<>();
-                }
-            } else {
-                mTrackPointList = null;
-            }
-            mImageView.setTracks(mTrackPointList);
+        Uri calibUri = getCalibUri(uri);
+        if (calibUri == null || !UriUtils.exists(this, calibUri)) {
+            Utils.warnMsg(this, "There is no calibration file for "
+                    + uri.getLastPathSegment());
+            return;
         }
+        mMapCalibration = new MapCalibration(this);
+        try {
+            mMapCalibration.read(calibUri);
+        } catch (Exception ex) {
+            // Have to use Exception because NumberFormatException might
+            // be wrapped in an InvocationTargetException
+            Utils.excMsg(this, "Error reading calibration file", ex);
+            mMapCalibration = null;
+        }
+        // Reset mTrackPointList with new calib
+        if (mTracking) {
+            if (mLocationService != null) {
+                mTrackPointList =
+                        getPointsFromTrackpoints(
+                                mLocationService.mTrackpointList);
+            }
+            if (mTrackPointList == null) {
+                mTrackPointList = new ArrayList<>();
+            }
+        } else {
+            mTrackPointList = null;
+        }
+        mImageView.setTracks(mTrackPointList);
     }
 
-    /**
-     * Checks if the service is running
-     *
-     * @param serviceClass The class of the service.
-     * @return If service is running or not.
-     */
-    private boolean isServiceRunning(Class<?> serviceClass) {
-        ActivityManager manager =
-                (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        for (ActivityManager.RunningServiceInfo service :
-                manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (serviceClass.getName().equals(service.service.getClassName())) {
-                return true;
-            }
-        }
-        return false;
-    }
+
+//    /**
+//     * Checks if the service is running
+//     *
+//     * @param serviceClass The class of the service.
+//     * @return If service is running or not.
+//     */
+//    private boolean isServiceRunning(Class<?> serviceClass) {
+//        ActivityManager manager =
+//                (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+//        for (ActivityManager.RunningServiceInfo service :
+//                manager.getRunningServices(Integer.MAX_VALUE)) {
+//            if (serviceClass.getName().equals(service.service.getClassName
+//            ())) {
+//                return true;
+//            }
+//        }
+//        return false;
+//    }
 
     /**
      * Initializes location parameters.  Does nothing if not using location.
@@ -1064,8 +1133,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         Log.d(TAG, this.getClass().getSimpleName());
         try {
             List<Trackpoint> trackpointList = mLocationService.mTrackpointList;
-
-            String name;
             SimpleDateFormat trackpointFormatter = new SimpleDateFormat(
                     "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
             trackpointFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
@@ -1110,7 +1177,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
 //            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI,
 //                    uri);
 //        }
-            startActivityForResult(intent, CREATE_DOCUMENT);
+            startActivityForResult(intent, REQ_CREATE_DOCUMENT);
         } catch (Exception ex) {
             Utils.excMsg(this, "Error requesting saving of GPX file", ex);
         }
@@ -1122,17 +1189,18 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      * @param uri The Uri to use for writing.
      */
     private void doSave(Uri uri) {
-        FileWriter writer = null;
-        PrintWriter out = null;
         String name, msg;
+        ParcelFileDescriptor pfd;
         try {
-            ParcelFileDescriptor pfd = getContentResolver().
+            pfd = getContentResolver().
                     openFileDescriptor(uri, "w");
-            writer =
-                    new FileWriter(pfd.getFileDescriptor());
-
-            out = new PrintWriter(writer);
-
+        } catch (Exception ex) {
+            Utils.excMsg(this, "Error getting file for save", ex);
+            return;
+        }
+        try (FileWriter writer =
+                     new FileWriter(pfd.getFileDescriptor());
+             PrintWriter out = new PrintWriter(writer)) {
             List<Trackpoint> trackpointList = mLocationService.mTrackpointList;
             SimpleDateFormat trackpointFormatter = new SimpleDateFormat(
                     "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
@@ -1182,7 +1250,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             }
             out.write(GPXUtils.GPX_FILE_END_LINES);
             out.flush();
-            msg = "Wrote " + uri.getPath();
+            msg = "Wrote " + uri.getLastPathSegment();
             Log.d(TAG, msg);
             Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
         } catch (Exception ex) {
@@ -1190,13 +1258,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             Log.e(TAG, msg);
             Log.e(TAG, Log.getStackTraceString(ex));
             Utils.excMsg(this, msg, ex);
-        } finally {
-            try {
-                if (writer != null) writer.close();
-                if (out != null) out.close();
-            } catch (Exception ex) {
-                // No nothing
-            }
         }
     }
 
@@ -1273,12 +1334,43 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     }
 
     /**
+     * Brings up a system file chooser to get the image directory
+     */
+    private void getImageDirectory() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION &
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+//        intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, uriToLoad);
+        startActivityForResult(intent, REQ_GET_TREE);
+    }
+
+    /**
+     * Get the calinration file Uri corresponding to the given Uri.
+     *
+     * @param uri The Uri.
+     * @return The calibration Uri.
+     */
+    private Uri getCalibUri(Uri uri) {
+        Log.d(TAG, "getCalibUri: uri=" + uri.getLastPathSegment());
+        if (uri == null) return null;
+        Uri calibUri = null;
+        String uriStr = uri.toString();
+        int i = uriStr.lastIndexOf('.');
+        String baseStr;
+        if (i > 0) {
+            baseStr = uriStr.substring(0, i + 1);
+            calibUri = Uri.parse(baseStr + CALIB_EXT);
+        }
+        return calibUri;
+    }
+
+    /**
      * Request permission for FINE_LOCATION.
      */
     private void requestLocationPermission() {
         ActivityCompat.requestPermissions(this, new String[]{Manifest
                         .permission.ACCESS_FINE_LOCATION},
-                ACCESS_FINE_LOCATION_REQ);
+                REQ_ACCESS_FINE_LOCATION);
     }
 
     /**
@@ -1289,71 +1381,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 "requestReadExternalStoragePermission:");
         ActivityCompat.requestPermissions(this, new String[]{Manifest
                         .permission.READ_EXTERNAL_STORAGE},
-                ACCESS_READ_EXTERNAL_STORAGE_REQ);
+                REQ_ACCESS_READ_EXTERNAL_STORAGE);
     }
-
-    /**
-     * Request permission for WRITE_EXTERNAL_STORAGE.
-     */
-    private void requestWriteExternalStoragePermission() {
-        Log.d(TAG, this.getClass().getSimpleName() + ": " +
-                "requestWriteExternalStoragePermission:");
-        ActivityCompat.requestPermissions(this, new String[]{Manifest
-                        .permission.WRITE_EXTERNAL_STORAGE},
-                ACCESS_WRITE_EXTERNAL_STORAGE_REQ);
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           @NonNull String[]
-                                                   permissions,
-                                           @NonNull int[] grantResults) {
-        Log.d(TAG, this.getClass().getSimpleName() + ": " +
-                "onRequestPermissionsResult:" + " permissions=" +
-                permissions[0]
-                + "\ngrantResults=" + grantResults[0]
-                + "\nmUseLocation=" + mUseLocation
-                + "\nmPromptForReadExternalStorage="
-                + mPromptForReadExternalStorage);
-        switch (requestCode) {
-            case ACCESS_FINE_LOCATION_REQ:
-                // FINE_LOCATION
-                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Log.d(TAG, "FINE_LOCATION granted");
-                    if (mUseLocation) {
-                        setupLocation();
-                    }
-                } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
-                    Log.d(TAG, "FINE_LOCATION denied");
-                    mUseLocation = false;
-                    // Save this as onResume will be called next, not
-                    // onPause
-                    SharedPreferences.Editor editor = PreferenceManager
-                            .getDefaultSharedPreferences(this)
-                            .edit();
-                    editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
-                    editor.apply();
-                }
-                break;
-            case ACCESS_READ_EXTERNAL_STORAGE_REQ:
-                // READ_EXTERNAL_STORAGE
-                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Log.d(TAG, "READ_EXTERNAL_STORAGE granted");
-                    mPromptForReadExternalStorage = true;
-                } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
-                    Log.d(TAG, "READ_EXTERNAL_STORAGE denied");
-                    mPromptForReadExternalStorage = false;
-                    mUseLocation = false;
-                    // Save this as onResume will be called next, not
-                    // onPause
-                    SharedPreferences.Editor editor = PreferenceManager
-                            .getDefaultSharedPreferences(this)
-                            .edit();
-                    editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
-                    editor.apply();
-                }
-                break;
-        }
-    }
-
 }

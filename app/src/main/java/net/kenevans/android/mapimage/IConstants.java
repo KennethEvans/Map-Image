@@ -41,7 +41,7 @@ interface IConstants {
     String EXTRA_LON = PACKAGE_NAME + ".extraLongitude";
     String EXTRA_STATUS = PACKAGE_NAME + ".extraStatus";
     String EXTRA_ACCURACY = PACKAGE_NAME + ".extraAccuracy";
-    String EXTRA_OPEN_FILE_PATH = PACKAGE_NAME + ".OpenFileName";
+    String EXTRA_IMAGE_URI = PACKAGE_NAME + "extraImageUri";
 
     /**
      * Key for information URL sent to InfoActivity.
@@ -84,46 +84,26 @@ interface IConstants {
     /**
      * Directory on the SD card where strips are saved
      */
-    String SD_CARD_MAP_IMAGE_DIRECTORY = "MapImage";
-
-    String PREF_FILENAME = "fileName";
     String PREF_GPX_FILENAME_SUFFIX = "gpxFileNameSuffix";
     String PREF_GPX_FILENAME_PREFIX = "gpxFileNamePrefix";
     String PREF_GPX_CATEGORY = "gpxCategory";
     String PREF_GPX_LOCATION = "gpxLocation";
     String PREF_USE_LOCATION = "useLocation";
     String PREF_TRACKING = "tracking";
-    String PREF_IMAGE_DIRECTORY = "imageDirectory";
+    String PREF_IMAGE_URI = "imageUri";
     String PREF_UPDATE_INTERVAL = "updateInterval";
     String PREF_SCALE = "scale";
     String PREF_CENTER_X = "centerX";
     String PREF_CENTER_Y = "centerY";
+    String PREF_TREE_URI = "tree_uri";
 
-    /**
-     * Request code for displaying an image.
-     */
-    int DISPLAY_IMAGE_REQ = 0;
-
-    /**
-     * Request code for FINE_LOCATION.
-     */
-    int ACCESS_FINE_LOCATION_REQ = 1;
-
-    /**
-     * Request code for READ_EXTERNAL_STORAGE.
-     */
-    int ACCESS_READ_EXTERNAL_STORAGE_REQ = 2;
-
-    /**
-     * Request code for WRITE_EXTERNAL_STORAGE.
-     */
-    int ACCESS_WRITE_EXTERNAL_STORAGE_REQ = 3;
-
-    /**
-     * Result code for creating a document.
-     */
-    int CREATE_DOCUMENT = 10;
-
+    // Requests
+    int REQ_DISPLAY_IMAGE = 0;
+    int REQ_ACCESS_FINE_LOCATION = 1;
+    int REQ_ACCESS_READ_EXTERNAL_STORAGE = 2;
+//    int REQ_ACCESS_WRITE_EXTERNAL_STORAGE = 3;
+    int REQ_GET_TREE = 10;
+    int REQ_CREATE_DOCUMENT = 11;
 
     /**
      * Notification ID for managing notifications.
