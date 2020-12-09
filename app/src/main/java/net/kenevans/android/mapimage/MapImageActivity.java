@@ -24,7 +24,6 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
-import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.text.InputType;
 import android.util.DisplayMetrics;
@@ -190,8 +189,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                         + " mBroadcastReceiver==null=" + (mBroadcastReceiver == null));
 
         // Restore the state
-        SharedPreferences prefs = PreferenceManager
-                .getDefaultSharedPreferences(this);
+        SharedPreferences prefs = getPreferences(MODE_PRIVATE);
         mUseLocation = prefs.getBoolean(PREF_USE_LOCATION, false);
         mTracking = prefs.getBoolean(PREF_TRACKING, false);
         if (mLocationService != null) {
@@ -279,9 +277,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         Log.d(TAG, "    mBroadcastReceiver==null="
                 + (mBroadcastReceiver == null));
         super.onPause();
-        SharedPreferences.Editor editor =
-                PreferenceManager.getDefaultSharedPreferences(this)
-                .edit();
+        SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE).edit();
         editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
         editor.putBoolean(PREF_TRACKING, mTracking);
         if (mImageView != null) {
@@ -314,9 +310,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 + " resultCode=" + resultCode);
         if (requestCode == REQ_DISPLAY_IMAGE && resultCode == RESULT_OK) {
             Bundle extras = intent.getExtras();
-            SharedPreferences.Editor editor = PreferenceManager
-                    .getDefaultSharedPreferences(this)
-                    .edit();
+            SharedPreferences.Editor editor =
+                    getPreferences(MODE_PRIVATE).edit();
             try {
                 String imageUri = extras.getString(EXTRA_IMAGE_URI);
                 // Just set the filePath, setNewImage will be done in onResume
@@ -357,8 +352,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             if (treeUri != null) {
                 // Keep them from accumulating
                 UriUtils.releaseAllPermissions(this);
-                SharedPreferences.Editor editor = PreferenceManager
-                        .getDefaultSharedPreferences(this)
+                SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
                         .edit();
                 editor.putString(PREF_TREE_URI, treeUri.toString());
                 editor.apply();
@@ -410,9 +404,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     mUseLocation = false;
                     // Save this as onResume will be called next, not
                     // onPause
-                    SharedPreferences.Editor editor = PreferenceManager
-                            .getDefaultSharedPreferences(this)
-                            .edit();
+                    SharedPreferences.Editor editor =
+                            getPreferences(MODE_PRIVATE).edit();
                     editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
                     editor.apply();
                 }
@@ -428,9 +421,9 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     mUseLocation = false;
                     // Save this as onResume will be called next, not
                     // onPause
-                    SharedPreferences.Editor editor = PreferenceManager
-                            .getDefaultSharedPreferences(this)
-                            .edit();
+                    SharedPreferences.Editor editor =
+                            getPreferences(MODE_PRIVATE)
+                                    .edit();
                     editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
                     editor.apply();
                 }
@@ -600,8 +593,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         try {
             StringBuilder info = new StringBuilder();
             // Filename
-            SharedPreferences prefs = PreferenceManager
-                    .getDefaultSharedPreferences(this);
+            SharedPreferences prefs = getPreferences(MODE_PRIVATE);
             String uriStr = prefs.getString(PREF_IMAGE_URI, null);
             if (uriStr == null) {
                 info.append("No file name\n");
@@ -830,10 +822,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                                     "Invalid item");
                             return;
                         }
-                        SharedPreferences.Editor editor = PreferenceManager
-                                .getDefaultSharedPreferences(MapImageActivity
-                                        .this)
-                                .edit();
+                        SharedPreferences.Editor editor =
+                                getPreferences(MODE_PRIVATE).edit();
                         editor.putString(PREF_IMAGE_URI,
                                 foundList.get(item).uri.toString());
                         // Reset the preferences to the defaults
@@ -1083,9 +1073,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         // Get an identifier
         AlertDialog.Builder dialog = new AlertDialog.Builder(this);
         dialog.setTitle(R.string.gpx_save_title);
-        SharedPreferences prefs = PreferenceManager
-                .getDefaultSharedPreferences(this);
-
+        SharedPreferences prefs = getPreferences(MODE_PRIVATE);
         LinearLayout ll = new LinearLayout(this);
         // Convert to dip
         int padding = (int) TypedValue.applyDimension(
@@ -1129,10 +1117,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                         String category = categoryBox.getText().toString();
                         String location = locationBox.getText().toString();
                         String suffix = suffixBox.getText().toString();
-                        SharedPreferences.Editor editor = PreferenceManager
-                                .getDefaultSharedPreferences(MapImageActivity
-                                        .this)
-                                .edit();
+                        SharedPreferences.Editor editor =
+                                getPreferences(MODE_PRIVATE).edit();
                         editor.putString(PREF_GPX_FILENAME_PREFIX, prefix);
                         editor.putString(PREF_GPX_CATEGORY, category);
                         editor.putString(PREF_GPX_LOCATION, location);
@@ -1302,9 +1288,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                         } else {
                             mUpdateInterval = item;
                         }
-                        SharedPreferences.Editor editor = PreferenceManager
-                                .getDefaultSharedPreferences(MapImageActivity
-                                        .this).edit();
+                        SharedPreferences.Editor editor =
+                                getPreferences(MODE_PRIVATE).edit();
                         editor.putInt(PREF_UPDATE_INTERVAL,
                                 mUpdateInterval);
                         editor.apply();
