@@ -8,7 +8,6 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
-import android.util.Log;
 
 import java.util.Date;
 import java.util.List;
@@ -103,12 +102,12 @@ public class UriUtils implements IConstants {
      * @param context The context.
      * @return The information as a formatted string.
      */
-    private String showPermissions(Context context) {
+    public static String showPermissions(Context context) {
         ContentResolver resolver = context.getContentResolver();
         List<UriPermission> permissionList =
                 resolver.getPersistedUriPermissions();
         StringBuilder sb = new StringBuilder();
-        sb.append("Persistent Permissions");
+        sb.append("Persistent Permissions").append("\n");
         for (UriPermission permission : permissionList) {
             sb.append(permission.getUri()).append("\n");
             sb.append("    time=").
@@ -119,7 +118,6 @@ public class UriUtils implements IConstants {
                     "").append("\n");
             sb.append("    special objects flag=").
                     append(permission.describeContents()).append("\n");
-            sb.append("\n");
         }
         return sb.toString();
     }

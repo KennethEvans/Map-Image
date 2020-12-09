@@ -65,7 +65,7 @@ public class ImageFileListActivity extends AppCompatActivity implements IConstan
     }
 
     /**
-     * Get the list of available files.
+     * Get the list of available image files.
      *
      * @param context The context.
      * @return The list.
@@ -101,8 +101,11 @@ public class ImageFileListActivity extends AppCompatActivity implements IConstan
                 documentUri =
                         DocumentsContract.buildDocumentUriUsingTree(treeUri,
                                 documentId);
+                if (documentUri == null) continue;
                 displayName = cursor.getString(1);
-                lastSeg = documentUri.getLastPathSegment().toLowerCase();
+                String lastPathSegment = documentUri.getLastPathSegment();
+                if (lastPathSegment == null) continue;
+                lastSeg = lastPathSegment.toLowerCase();
 
                 if (lastSeg.endsWith("jpg") ||
                         lastSeg.endsWith("jpeg") ||

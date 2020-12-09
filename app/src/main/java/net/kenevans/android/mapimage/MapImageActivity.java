@@ -220,10 +220,10 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         Uri uri = null;
         if (uriStr != null) {
             uri = Uri.parse(uriStr);
+            Log.d(TAG,
+                    this.getClass().getSimpleName() + ": onResume: uri="
+                            + uri.getLastPathSegment());
         }
-        Log.d(TAG,
-                this.getClass().getSimpleName() + ": onResume: uri="
-                        + uri.getLastPathSegment());
         // Check READ_EXTERNAL_STORAGE
         if (Build.VERSION.SDK_INT >= 23
                 && ContextCompat.checkSelfPermission(this, Manifest
@@ -279,8 +279,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         Log.d(TAG, "    mBroadcastReceiver==null="
                 + (mBroadcastReceiver == null));
         super.onPause();
-        SharedPreferences.Editor editor = PreferenceManager
-                .getDefaultSharedPreferences(this)
+        SharedPreferences.Editor editor =
+                PreferenceManager.getDefaultSharedPreferences(this)
                 .edit();
         editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
         editor.putBoolean(PREF_TRACKING, mTracking);
@@ -321,9 +321,11 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 String imageUri = extras.getString(EXTRA_IMAGE_URI);
                 // Just set the filePath, setNewImage will be done in onResume
                 editor.putString(PREF_IMAGE_URI, imageUri);
+                editor.apply();
             } catch (Exception ex) {
                 Utils.excMsg(this, "Did not get file name from Preferences",
                         ex);
+                return;
             }
             // Reset the preferences to the defaults
             editor.putFloat(PREF_CENTER_X, X_DEFAULT);
@@ -333,34 +335,41 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         } else if (requestCode == REQ_CREATE_DOCUMENT &&
                 resultCode == Activity.RESULT_OK) {
             Uri uri;
-            if (intent != null) {
+            if (intent == null) {
+                Utils.errMsg(this, "Got invalid Uri for creating GPX file");
+            } else {
                 uri = intent.getData();
-                List<String> segments = uri.getPathSegments();
-                Uri.Builder builder = new Uri.Builder();
-                for (int i = 0; i < segments.size() - 1; i++) {
-                    builder.appendPath(segments.get(i));
+                if (uri != null) {
+                    List<String> segments = uri.getPathSegments();
+                    Uri.Builder builder = new Uri.Builder();
+                    for (int i = 0; i < segments.size() - 1; i++) {
+                        builder.appendPath(segments.get(i));
+                    }
+                    Uri parent = builder.build();
+                    Log.d(TAG, "uri=" + uri + " parent=" + parent);
+                    doSaveGpx(uri);
                 }
-                Uri parent = builder.build();
-                Log.d(TAG, "uri=" + uri + " parent=" + parent);
-                doSave(uri);
             }
         } else if (requestCode == REQ_GET_TREE && resultCode == RESULT_OK) {
             Uri treeUri;
             // Get Uri from Storage Access Framework.
             treeUri = intent.getData();
-            // Keep them from accumulating
-            UriUtils.releaseAllPermissions(this);
-            SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
-                    .edit();
-            editor.putString(PREF_TREE_URI, treeUri.toString());
-            editor.apply();
+            if (treeUri != null) {
+                // Keep them from accumulating
+                UriUtils.releaseAllPermissions(this);
+                SharedPreferences.Editor editor = PreferenceManager
+                        .getDefaultSharedPreferences(this)
+                        .edit();
+                editor.putString(PREF_TREE_URI, treeUri.toString());
+                editor.apply();
 
-            // Persist access permissions.
-            final int takeFlags = intent.getFlags()
-                    & (Intent.FLAG_GRANT_READ_URI_PERMISSION |
-                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            this.getContentResolver().takePersistableUriPermission(treeUri,
-                    takeFlags);
+                // Persist access permissions.
+                final int takeFlags = intent.getFlags()
+                        & (Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                this.getContentResolver().takePersistableUriPermission(treeUri,
+                        takeFlags);
+            }
         }
 
     }
@@ -682,6 +691,17 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     .PERMISSION_GRANTED) {
                 info.append("No permission granted for ACCESS_FINE_LOCATION\n");
             }
+            String treeUriStr = prefs.getString(PREF_TREE_URI, null);
+            if (treeUriStr == null) {
+                info.append("Image Directory: Not set");
+            } else {
+                Uri treeUri = Uri.parse(treeUriStr);
+                if (treeUri == null) {
+                    info.append("Image Directory: Not set");
+                } else {
+                    info.append("Data Directory: ").append(treeUri.getPath());
+                }
+            }
             Utils.infoMsg(this, info.toString());
         } catch (Throwable t) {
             Utils.excMsg(this, "Error showing info", t);
@@ -776,6 +796,11 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         // Get the list of files
         List<ImageFileListActivity.UriData> fileList =
                 ImageFileListActivity.getUriList(this);
+        if (fileList == null) {
+            Utils.errMsg(this,
+                    "openImageForLocation: Failed to get liat of image files");
+            return;
+        }
         Log.d(TAG, " fileList.size()=" + fileList.size());
         final List<ImageFileListActivity.UriData> foundList = new ArrayList<>();
         for (ImageFileListActivity.UriData uriData : fileList) {
@@ -1171,18 +1196,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             intent.addCategory(Intent.CATEGORY_OPENABLE);
             intent.setType("application/gpx+xml");
             intent.putExtra(Intent.EXTRA_TITLE, fileName);
-            // Set initial directory
-//        if (Build.VERSION.SDK_INT >= 28) {
-//            File sdCardRoot = Environment.getExternalStorageDirectory();
-//            File dir = new File(sdCardRoot, SD_CARD_SUGGESTED_DIR);
-//            Uri.Builder builder = new Uri.Builder();
-//            builder.path(sdCardRoot.getPath())
-//                    .appendPath(SD_CARD_SUGGESTED_DIR);
-//            Uri uri = builder.build();
-//            Uri uriFile = Uri.fromFile(dir);
-//            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI,
-//                    uri);
-//        }
             startActivityForResult(intent, REQ_CREATE_DOCUMENT);
         } catch (Exception ex) {
             Utils.excMsg(this, "Error requesting saving of GPX file", ex);
@@ -1194,71 +1207,71 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      *
      * @param uri The Uri to use for writing.
      */
-    private void doSave(Uri uri) {
+    private void doSaveGpx(Uri uri) {
         String name, msg;
         ParcelFileDescriptor pfd;
         try {
             pfd = getContentResolver().
                     openFileDescriptor(uri, "w");
-        } catch (Exception ex) {
-            Utils.excMsg(this, "Error getting file for save", ex);
-            return;
-        }
-        try (FileWriter writer =
-                     new FileWriter(pfd.getFileDescriptor());
-             PrintWriter out = new PrintWriter(writer)) {
-            List<Trackpoint> trackpointList = mLocationService.mTrackpointList;
-            SimpleDateFormat trackpointFormatter = new SimpleDateFormat(
-                    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
-            trackpointFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
-            try {
-                PackageManager pm = getPackageManager();
-                PackageInfo po = pm.getPackageInfo(this.getPackageName(), 0);
-                name = "MapImage " + po.versionName;
-            } catch (Exception ex) {
-                name = "MapImage";
-            }
-            Date firstTkptDate = new Date();
-            for (Trackpoint tkpt : trackpointList) {
-                if (tkpt == null) continue;
-                firstTkptDate = new Date(tkpt.time);
-                break;
-            }
-            String date = trackpointFormatter.format(firstTkptDate);
-            String line, lat, lon, ele;
-            long time;
-            boolean prevTrackpointNull = true;
-            Log.d(TAG, "");
-            int nItem = 0;
-            int size = trackpointList.size();
-            // Write header and beginning lines
-            out.write(String.format(GPXUtils.GPX_FILE_START_LINES, name, date));
-            for (Trackpoint tkpt : trackpointList) {
-                nItem++;
-                // Make a new segment if the trackpoint is null
-                if (tkpt == null) {
-                    // Avoid empty segments
-                    if (prevTrackpointNull || nItem == size) continue;
-                    prevTrackpointNull = true;
-                    out.write(GPXUtils.GPX_FILE_NEW_SEGMENT);
-                    continue;
-                } else {
-                    prevTrackpointNull = false;
+            try (FileWriter writer =
+                         new FileWriter(pfd.getFileDescriptor());
+                 PrintWriter out = new PrintWriter(writer)) {
+                List<Trackpoint> trackpointList =
+                        mLocationService.mTrackpointList;
+                SimpleDateFormat trackpointFormatter = new SimpleDateFormat(
+                        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+                trackpointFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
+                try {
+                    PackageManager pm = getPackageManager();
+                    PackageInfo po = pm.getPackageInfo(this.getPackageName(),
+                            0);
+                    name = "MapImage " + po.versionName;
+                } catch (Exception ex) {
+                    name = "MapImage";
                 }
-                lat = String.format(Locale.US, "%.6f", tkpt.lat);
-                lon = String.format(Locale.US, "%.6f", tkpt.lon);
-                ele = String.format(Locale.US, "%.6f", tkpt.alt);
-                time = tkpt.time;
-                line = String.format(GPXUtils.GPX_FILE_TRACK_LINES,
-                        lat, lon, ele,
-                        trackpointFormatter.format(new Date(time)));
-                out.write(line);
+                Date firstTkptDate = new Date();
+                for (Trackpoint tkpt : trackpointList) {
+                    if (tkpt == null) continue;
+                    firstTkptDate = new Date(tkpt.time);
+                    break;
+                }
+                String date = trackpointFormatter.format(firstTkptDate);
+                String line, lat, lon, ele;
+                long time;
+                boolean prevTrackpointNull = true;
+                Log.d(TAG, "");
+                int nItem = 0;
+                int size = trackpointList.size();
+                // Write header and beginning lines
+                out.write(String.format(GPXUtils.GPX_FILE_START_LINES, name,
+                        date));
+                for (Trackpoint tkpt : trackpointList) {
+                    nItem++;
+                    // Make a new segment if the trackpoint is null
+                    if (tkpt == null) {
+                        // Avoid empty segments
+                        if (prevTrackpointNull || nItem == size) continue;
+                        prevTrackpointNull = true;
+                        out.write(GPXUtils.GPX_FILE_NEW_SEGMENT);
+                        continue;
+                    } else {
+                        prevTrackpointNull = false;
+                    }
+                    lat = String.format(Locale.US, "%.6f", tkpt.lat);
+                    lon = String.format(Locale.US, "%.6f", tkpt.lon);
+                    ele = String.format(Locale.US, "%.6f", tkpt.alt);
+                    time = tkpt.time;
+                    line = String.format(GPXUtils.GPX_FILE_TRACK_LINES,
+                            lat, lon, ele,
+                            trackpointFormatter.format(new Date(time)));
+                    out.write(line);
+                }
+                out.write(GPXUtils.GPX_FILE_END_LINES);
+                out.flush();
+                msg = "Wrote " + uri.getLastPathSegment();
+                Log.d(TAG, msg);
+                Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
             }
-            out.write(GPXUtils.GPX_FILE_END_LINES);
-            out.flush();
-            msg = "Wrote " + uri.getLastPathSegment();
-            Log.d(TAG, msg);
-            Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
         } catch (Exception ex) {
             msg = "Error writing " + uri.getPath();
             Log.e(TAG, msg);
