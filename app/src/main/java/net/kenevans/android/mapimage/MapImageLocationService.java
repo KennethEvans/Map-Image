@@ -12,9 +12,7 @@ import android.location.LocationManager;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
 import android.util.Log;
 
 import java.util.ArrayList;
@@ -182,22 +180,21 @@ public class MapImageLocationService extends Service implements IConstants {
                 mLocationListener.onLocationChanged(mLocationListener.mLastLocation);
             }
         } catch (final SecurityException ex) {
-            Handler handler = new Handler(Looper.getMainLooper());
-            handler.post(new Runnable() {
-                public void run() {
-                    Utils.excMsg(MapImageLocationService.this,
-                            "SecurityException starting " +
-                                    "MapImageLocationService", ex);
-                }
-            });
+            final Intent intent = new Intent(ACTION_ERROR);
+            String msg = "SecurityException starting " +
+                    "MapImageLocationService:\n"
+                    + ex.getMessage();
+            intent.putExtra(EXTRA_ERROR, msg);
+            sendBroadcast(intent);
+            Log.e(TAG, msg, ex);
         } catch (final Exception ex) {
-            Handler handler = new Handler(Looper.getMainLooper());
-            handler.post(new Runnable() {
-                public void run() {
-                    Utils.excMsg(MapImageLocationService.this, "Error " +
-                            "starting MapImageLocationService", ex);
-                }
-            });
+            final Intent intent = new Intent(ACTION_ERROR);
+            String msg = "Error starting " +
+                    "MapImageLocationService\n"
+                    + ex.getMessage();
+            intent.putExtra(EXTRA_ERROR, msg);
+            sendBroadcast(intent);
+            Log.e(TAG, msg, ex);
         }
     }
 

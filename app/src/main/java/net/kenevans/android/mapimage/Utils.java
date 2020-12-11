@@ -54,6 +54,7 @@ public class Utils implements IConstants {
         } catch (Throwable t) {
             Log.e(getContextTag(context), "Error using " + title
                     + "AlertDialog\n" + t + "\n" + t.getMessage());
+            Log.e(TAG, getContextTag(context) + msg, t);
         }
     }
 

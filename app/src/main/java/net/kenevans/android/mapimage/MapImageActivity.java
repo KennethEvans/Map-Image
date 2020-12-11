@@ -24,6 +24,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
+import android.provider.DocumentsContract;
 import android.provider.Settings;
 import android.text.InputType;
 import android.util.DisplayMetrics;
@@ -63,6 +64,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     private Location mLocation;
     private List<PointF> mTrackPointList;
     private boolean mUseLocation = false;
+    private boolean mUseBackgroundLocation = false;
     private boolean mTracking;
     private MapImageLocationService mLocationService;
     /**
@@ -150,7 +152,9 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                         if (status == LocationProvider.OUT_OF_SERVICE) {
                             mImageView.setLocation(null);
                         }
-//                    } else if (ACTION_ERROR.equals(action)) {
+                    } else if (ACTION_ERROR.equals(action)) {
+                        String msg = intent.getStringExtra(EXTRA_ERROR);
+                        Utils.errMsg(MapImageActivity.this, msg);
                     }
                 }
             };
@@ -183,15 +187,35 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         super.onResume();
         Log.d(TAG, this.getClass().getSimpleName()
                 + ": onResume: mUseLocation=" + mUseLocation
+                + " mUseBackgroundLocation=" + mUseBackgroundLocation
                 + " mUpdateInterval=" + mUpdateInterval);
         Log.d(TAG,
                 "    mPromptForReadExternalStorage=" + mPromptForReadExternalStorage
                         + " mBroadcastReceiver==null=" + (mBroadcastReceiver == null));
 
         // Restore the state
+        mUseLocation = ContextCompat.checkSelfPermission(this, Manifest
+                .permission.ACCESS_FINE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED;
+        if (Build.VERSION.SDK_INT >= 29) {
+            mUseBackgroundLocation = ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
+                    PackageManager.PERMISSION_GRANTED;
+        } else {
+            // Automatically granted with ACCESS_FINE_LOCATION
+            mUseBackgroundLocation = mUseLocation;
+        }
         SharedPreferences prefs = getPreferences(MODE_PRIVATE);
-        mUseLocation = prefs.getBoolean(PREF_USE_LOCATION, false);
         mTracking = prefs.getBoolean(PREF_TRACKING, false);
+        if (!mUseLocation) mTracking = false;
+//        // Too annoying here, happens on Start Tracking
+//        if (mTracking && mUseBackgroundLocation == false) {
+//            Utils.warnMsg(this,
+//                    "Location permission must be \"Allow all the time\""
+//                            + " for trackpoints to be accumulated when"
+//                            + " app is not visible. Do this in Settings"
+//                            + " for Map Image.");
+//        }
         if (mLocationService != null) {
             mLocationService.setTracking(mTracking);
             if (mTracking) {
@@ -385,29 +409,39 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                                                    permissions,
                                            @NonNull int[] grantResults) {
         Log.d(TAG, this.getClass().getSimpleName() + ": " +
-                "onRequestPermissionsResult:" + " permissions=" +
-                permissions[0]
-                + "\ngrantResults=" + grantResults[0]
-                + "\nmUseLocation=" + mUseLocation
-                + "\nmPromptForReadExternalStorage="
+                "onRequestPermissionsResult:" + " nPermissions=" + permissions.length);
+        for (int i = 0; i < permissions.length; i++) {
+            Log.d(TAG, "   permissions[" + i + "]=" + permissions[i]
+                    + " grantResults[" + i + "]=" + grantResults[i]);
+        }
+        Log.d(TAG, "    mUseLocation=" + mUseLocation);
+        Log.d(TAG, "    mUseBackgroundLocation=" + mUseBackgroundLocation);
+        Log.d(TAG, "    mPromptForReadExternalStorage="
                 + mPromptForReadExternalStorage);
         switch (requestCode) {
-            case REQ_ACCESS_FINE_LOCATION:
-                // FINE_LOCATION
+            case REQ_ACCESS_LOCATION:
+                // LOCATION
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     Log.d(TAG, "FINE_LOCATION granted");
-                    if (mUseLocation) {
-                        setupLocation();
-                    }
+                    mUseLocation = true;
                 } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
                     Log.d(TAG, "FINE_LOCATION denied");
                     mUseLocation = false;
-                    // Save this as onResume will be called next, not
-                    // onPause
-                    SharedPreferences.Editor editor =
-                            getPreferences(MODE_PRIVATE).edit();
-                    editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
-                    editor.apply();
+                } else if (Build.VERSION.SDK_INT >= 29 &&
+                        grantResults[1] == PackageManager.PERMISSION_GRANTED) {
+                    Log.d(TAG, "BACKGROUND_LOCATION granted");
+                    mUseBackgroundLocation = true;
+                } else if (Build.VERSION.SDK_INT >= 29 &&
+                        grantResults[1] == PackageManager.PERMISSION_DENIED) {
+                    Log.d(TAG, "BACKGROUND_LOCATION denied");
+                    mUseBackgroundLocation = false;
+                }
+                if (Build.VERSION.SDK_INT < 29)
+                    mUseBackgroundLocation = mUseLocation;
+                if (mUseLocation || mUseBackgroundLocation) {
+                    setupLocation();
+                } else {
+                    disableLocation();
                 }
                 break;
             case REQ_ACCESS_READ_EXTERNAL_STORAGE:
@@ -419,13 +453,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     Log.d(TAG, "READ_EXTERNAL_STORAGE denied");
                     mPromptForReadExternalStorage = false;
                     mUseLocation = false;
-                    // Save this as onResume will be called next, not
-                    // onPause
-                    SharedPreferences.Editor editor =
-                            getPreferences(MODE_PRIVATE)
-                                    .edit();
-                    editor.putBoolean(PREF_USE_LOCATION, mUseLocation);
-                    editor.apply();
                 }
                 break;
         }
@@ -433,7 +460,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
+        // Inflate the menu; this adds items to the action bar if it is
+        // present.
         getMenuInflater().inflate(R.menu.main_menu, menu);
 
         // Capture global exceptions
@@ -501,6 +529,13 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             return true;
         } else if (id == R.id.start_tracking) {
             mTracking = !mTracking;
+            if (mTracking && !mUseBackgroundLocation) {
+                Utils.warnMsg(this,
+                        "Location permission must be \"Allow all the time\""
+                                + " for trackpoints to be accumulated when"
+                                + " app is not visible. Do this in Settings"
+                                + " for Map Image.");
+            }
             if (mLocationService != null) {
                 mLocationService.setTracking(mTracking);
             }
@@ -608,7 +643,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             }
             int dWidth = mImageView.getSWidth();
             int dHeight = mImageView.getSHeight();
-            info.append(String.format(Locale.US, "%d x %d\n", dWidth, dHeight));
+            info.append(String.format(Locale.US, "%d x %d\n", dWidth,
+                    dHeight));
 
             // Get screen size and density
             DisplayMetrics metrics = getResources().getDisplayMetrics();
@@ -644,12 +680,15 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     float accuracy = mLocation.getAccuracy();
                     info.append(String.format(Locale.US,
                             "Location %.6f, %.6f +/- %.2f m",
-                            mLocation.getLongitude(), mLocation.getLatitude(),
+                            mLocation.getLongitude(),
+                            mLocation.getLatitude(),
                             accuracy));
                     try {
-                        int[] locationVals = mMapCalibration.inverse(lon, lat);
+                        int[] locationVals = mMapCalibration.inverse(lon,
+                                lat);
                         if (locationVals != null) {
-                            info.append(String.format(Locale.US, " @ (%d, %d)" +
+                            info.append(String.format(Locale.US, " @ (%d," +
+                                            " %d)" +
                                             "\n",
                                     locationVals[0],
                                     locationVals[1]));
@@ -660,7 +699,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                                 info.append("Not within the image\n");
                             }
                         } else {
-                            info.append("\n    Error getting location image " + "coordinates\n");
+                            info.append("\n    Error getting location " +
+                                    "image " + "coordinates\n");
                         }
                     } catch (Exception ex) {
                         // Do nothing
@@ -681,7 +721,18 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     && ContextCompat.checkSelfPermission(this, Manifest
                     .permission.ACCESS_FINE_LOCATION) != PackageManager
                     .PERMISSION_GRANTED) {
-                info.append("No permission granted for ACCESS_FINE_LOCATION\n");
+                info.append("No permission granted for " +
+                        "ACCESS_FINE_LOCATION\n");
+            }
+            if (Build.VERSION.SDK_INT >= 23
+                    && ContextCompat.checkSelfPermission(this, Manifest
+                    .permission.ACCESS_BACKGROUND_LOCATION) != PackageManager
+                    .PERMISSION_GRANTED
+                    && ContextCompat.checkSelfPermission(this, Manifest
+                    .permission.ACCESS_BACKGROUND_LOCATION) != PackageManager
+                    .PERMISSION_GRANTED) {
+                info.append("No permission granted for " +
+                        "ACCESS_BACKGROUND_LOCATION\n");
             }
             String treeUriStr = prefs.getString(PREF_TREE_URI, null);
             if (treeUriStr == null) {
@@ -710,7 +761,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             intent.setClass(this, InfoActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                     | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            intent.putExtra(INFO_URL, "file:///android_asset/mapimage.html");
+            intent.putExtra(INFO_URL, "file:///android_asset/mapimage" +
+                    ".html");
             startActivity(intent);
         } catch (Exception ex) {
             Utils.excMsg(this, getString(R.string.help_show_error), ex);
@@ -790,11 +842,13 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 ImageFileListActivity.getUriList(this);
         if (fileList == null) {
             Utils.errMsg(this,
-                    "openImageForLocation: Failed to get liat of image files");
+                    "openImageForLocation: Failed to get liat of image " +
+                            "files");
             return;
         }
         Log.d(TAG, " fileList.size()=" + fileList.size());
-        final List<ImageFileListActivity.UriData> foundList = new ArrayList<>();
+        final List<ImageFileListActivity.UriData> foundList =
+                new ArrayList<>();
         for (ImageFileListActivity.UriData uriData : fileList) {
             if (fileContainsLocation(uriData.uri, lat, lon)) {
                 foundList.add(uriData);
@@ -1053,7 +1107,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
 
     private void saveGpx() {
         if (mLocationService == null) {
-            Utils.errMsg(this, "No tracks: Location service is not running");
+            Utils.errMsg(this, "No tracks: Location service is not " +
+                    "running");
             return;
         }
         List<Trackpoint> trackpointList = mLocationService.mTrackpointList;
@@ -1124,7 +1179,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                         editor.putString(PREF_GPX_LOCATION, location);
                         editor.putString(PREF_GPX_FILENAME_SUFFIX, suffix);
                         editor.apply();
-                        generateSaveIntent(prefix, category, location, suffix);
+                        generateGpxSaveIntent(prefix, category, location,
+                                suffix);
                     }
                 });
         dialog.setNegativeButton(R.string.cancel,
@@ -1144,12 +1200,13 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      * @param location Location.
      * @param suffix   Suffix for the file name
      */
-    private void generateSaveIntent(String prefix, String category,
-                                    String location,
-                                    String suffix) {
+    private void generateGpxSaveIntent(String prefix, String category,
+                                       String location,
+                                       String suffix) {
         Log.d(TAG, this.getClass().getSimpleName());
         try {
-            List<Trackpoint> trackpointList = mLocationService.mTrackpointList;
+            List<Trackpoint> trackpointList =
+                    mLocationService.mTrackpointList;
             SimpleDateFormat trackpointFormatter = new SimpleDateFormat(
                     "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
             trackpointFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
@@ -1182,6 +1239,15 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             intent.addCategory(Intent.CATEGORY_OPENABLE);
             intent.setType("application/gpx+xml");
             intent.putExtra(Intent.EXTRA_TITLE, fileName);
+            if (Build.VERSION.SDK_INT >= 26) {
+                // Set initialDir
+                SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+                String lastGpxUri = prefs.getString(PREF_LAST_GPX_URI, null);
+                if (lastGpxUri != null) {
+                    intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI,
+                            lastGpxUri);
+                }
+            }
             startActivityForResult(intent, REQ_CREATE_DOCUMENT);
         } catch (Exception ex) {
             Utils.excMsg(this, "Error requesting saving of GPX file", ex);
@@ -1206,11 +1272,13 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                         mLocationService.mTrackpointList;
                 SimpleDateFormat trackpointFormatter = new SimpleDateFormat(
                         "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
-                trackpointFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
+                trackpointFormatter.setTimeZone(TimeZone.getTimeZone("GMT"
+                ));
                 try {
                     PackageManager pm = getPackageManager();
-                    PackageInfo po = pm.getPackageInfo(this.getPackageName(),
-                            0);
+                    PackageInfo po =
+                            pm.getPackageInfo(this.getPackageName(),
+                                    0);
                     name = "MapImage " + po.versionName;
                 } catch (Exception ex) {
                     name = "MapImage";
@@ -1257,6 +1325,11 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 msg = "Wrote " + uri.getLastPathSegment();
                 Log.d(TAG, msg);
                 Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+                // Save the uri
+                SharedPreferences.Editor editor =
+                        getPreferences(MODE_PRIVATE).edit();
+                editor.putString(PREF_LAST_GPX_URI, uri.toString());
+                editor.apply();
             }
         } catch (Exception ex) {
             msg = "Error writing " + uri.getPath();
@@ -1296,15 +1369,23 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                         if (mLocationService != null) {
                             try {
                                 mLocationService.setUpdateInterval(mUpdateInterval);
-                            } catch (SecurityException ex) {
-                                Utils.excMsg(MapImageActivity.this,
-                                        "SecurityException during " +
-                                                "setupLocation", ex);
-                            } catch (IllegalArgumentException ex) {
-                                Utils.excMsg(MapImageActivity.this,
-                                        "IllegalArgument exception during" +
-                                                " " +
-                                                "setupLocation", ex);
+                            } catch (final SecurityException ex) {
+                                runOnUiThread(new Runnable() {
+                                    public void run() {
+                                        Utils.excMsg(MapImageActivity.this,
+                                                "SecurityException during "
+                                                        + "setupLocation", ex);
+                                    }
+                                });
+                            } catch (final IllegalArgumentException ex) {
+                                runOnUiThread(new Runnable() {
+                                    public void run() {
+                                        Utils.excMsg(MapImageActivity.this,
+                                                "IllegalArgument exception " +
+                                                        "during " +
+                                                        "setupLocation", ex);
+                                    }
+                                });
                             }
                         }
                     }
@@ -1320,7 +1401,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      * @param trackPointList The trackpoint list.
      * @return The list of pixel coordinates.
      */
-    private List<PointF> getPointsFromTrackpoints(List<Trackpoint> trackPointList) {
+    private List<PointF> getPointsFromTrackpoints
+    (List<Trackpoint> trackPointList) {
         if (trackPointList == null) {
             return null;
         }
@@ -1372,9 +1454,16 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      * Request permission for FINE_LOCATION.
      */
     private void requestLocationPermission() {
-        ActivityCompat.requestPermissions(this, new String[]{Manifest
-                        .permission.ACCESS_FINE_LOCATION},
-                REQ_ACCESS_FINE_LOCATION);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ActivityCompat.requestPermissions(this, new String[]{
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_BACKGROUND_LOCATION},
+                    REQ_ACCESS_LOCATION);
+        } else {
+            ActivityCompat.requestPermissions(this, new String[]{
+                            Manifest.permission.ACCESS_FINE_LOCATION},
+                    REQ_ACCESS_LOCATION);
+        }
     }
 
     /**

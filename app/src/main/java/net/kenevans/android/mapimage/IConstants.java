@@ -42,6 +42,7 @@ interface IConstants {
     String EXTRA_STATUS = PACKAGE_NAME + ".extraStatus";
     String EXTRA_ACCURACY = PACKAGE_NAME + ".extraAccuracy";
     String EXTRA_IMAGE_URI = PACKAGE_NAME + "extraImageUri";
+    String EXTRA_ERROR = PACKAGE_NAME + "extraError";
 
     /**
      * Key for information URL sent to InfoActivity.
@@ -88,7 +89,9 @@ interface IConstants {
     String PREF_GPX_FILENAME_PREFIX = "gpxFileNamePrefix";
     String PREF_GPX_CATEGORY = "gpxCategory";
     String PREF_GPX_LOCATION = "gpxLocation";
+    String PREF_LAST_GPX_URI = "gpxLastGpxUri";
     String PREF_USE_LOCATION = "useLocation";
+    String PREF_USE_BACKGROUND_LOCATION = "useBackgroundLocation";
     String PREF_TRACKING = "tracking";
     String PREF_IMAGE_URI = "imageUri";
     String PREF_UPDATE_INTERVAL = "updateInterval";
@@ -99,7 +102,7 @@ interface IConstants {
 
     // Requests
     int REQ_DISPLAY_IMAGE = 0;
-    int REQ_ACCESS_FINE_LOCATION = 1;
+    int REQ_ACCESS_LOCATION = 1;
     int REQ_ACCESS_READ_EXTERNAL_STORAGE = 2;
 //    int REQ_ACCESS_WRITE_EXTERNAL_STORAGE = 3;
     int REQ_GET_TREE = 10;
