@@ -247,20 +247,20 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                             + uri.getLastPathSegment());
         }
         // Check READ_EXTERNAL_STORAGE
-        if (Build.VERSION.SDK_INT >= 23
-                && ContextCompat.checkSelfPermission(this, Manifest
-                .permission.READ_EXTERNAL_STORAGE) != PackageManager
-                .PERMISSION_GRANTED) {
-            if (mPromptForReadExternalStorage) {
-                requestReadExternalStoragePermission();
-            }
-            Log.d(TAG, this.getClass().getSimpleName()
-                    + ": onResume (2): mPromptForReadExternalStorage="
-                    + mPromptForReadExternalStorage);
-            mMapCalibration = null;
-            setNoImage();
-            return;
-        }
+//        if (Build.VERSION.SDK_INT >= 23
+//                && ContextCompat.checkSelfPermission(this, Manifest
+//                .permission.READ_EXTERNAL_STORAGE) != PackageManager
+//                .PERMISSION_GRANTED) {
+//            if (mPromptForReadExternalStorage) {
+//                requestReadExternalStoragePermission();
+//            }
+//            Log.d(TAG, this.getClass().getSimpleName()
+//                    + ": onResume (2): mPromptForReadExternalStorage="
+//                    + mPromptForReadExternalStorage);
+//            mMapCalibration = null;
+//            setNoImage();
+//            return;
+//        }
         Log.d(TAG, this.getClass().getSimpleName()
                 + ": onResume (3): mUseLocation=" + mUseLocation
                 + " mUpdateInterval=" + mUpdateInterval
@@ -510,15 +510,15 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             if (mUseLocation) {
                 disableLocation();
             } else {
-                if (Build.VERSION.SDK_INT >= 23
-                        && ContextCompat.checkSelfPermission(this, Manifest
-                        .permission.READ_EXTERNAL_STORAGE) != PackageManager
-                        .PERMISSION_GRANTED) {
-                    Utils.warnMsg(this, "Location cannot be started if " +
-                            "there" +
-                            " is no permission for READ_EXTERNAL_STORAGE");
-                    return true;
-                }
+//                if (Build.VERSION.SDK_INT >= 23
+//                        && ContextCompat.checkSelfPermission(this, Manifest
+//                        .permission.READ_EXTERNAL_STORAGE) != PackageManager
+//                        .PERMISSION_GRANTED) {
+//                    Utils.warnMsg(this, "Location cannot be started if " +
+//                            "there" +
+//                            " is no permission for READ_EXTERNAL_STORAGE");
+//                    return true;
+//                }
                 if (mUseLocation) {
                     Utils.warnMsg(this, "Location is already started");
                     return true;
@@ -707,13 +707,13 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     }
                 }
             }
-            if (Build.VERSION.SDK_INT >= 23
-                    && ContextCompat.checkSelfPermission(this, Manifest
-                    .permission.READ_EXTERNAL_STORAGE) != PackageManager
-                    .PERMISSION_GRANTED) {
-                info.append("No permission granted for " +
-                        "READ_EXTERNAL_STORAGE\n");
-            }
+//            if (Build.VERSION.SDK_INT >= 23
+//                    && ContextCompat.checkSelfPermission(this, Manifest
+//                    .permission.READ_EXTERNAL_STORAGE) != PackageManager
+//                    .PERMISSION_GRANTED) {
+//                info.append("No permission granted for " +
+//                        "READ_EXTERNAL_STORAGE\n");
+//            }
             if (Build.VERSION.SDK_INT >= 23
                     && ContextCompat.checkSelfPermission(this, Manifest
                     .permission.ACCESS_COARSE_LOCATION) != PackageManager
@@ -742,7 +742,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 if (treeUri == null) {
                     info.append("Image Directory: Not set");
                 } else {
-                    info.append("Data Directory: ").append(treeUri.getPath());
+                    info.append("Image Directory: ").append(treeUri.getPath());
                 }
             }
             Utils.infoMsg(this, info.toString());
@@ -773,21 +773,21 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      * Brings up an ImageListActivity with a list of files to open.
      */
     private void selectImage() {
-        if (Build.VERSION.SDK_INT >= 23
-                && ContextCompat.checkSelfPermission(this, Manifest
-                .permission.READ_EXTERNAL_STORAGE) != PackageManager
-                .PERMISSION_GRANTED) {
-            if (mPromptForReadExternalStorage) {
-                requestReadExternalStoragePermission();
-            } else {
-                Utils.errMsg(this, "No permission granted for " +
-                        "READ_EXTERNAL_STORAGE." +
-                        "\nTo continue restart app and allow or set " +
-                        "permission manually in the Application Manager."
-                );
-            }
-            return;
-        }
+//        if (Build.VERSION.SDK_INT >= 23
+//                && ContextCompat.checkSelfPermission(this, Manifest
+//                .permission.READ_EXTERNAL_STORAGE) != PackageManager
+//                .PERMISSION_GRANTED) {
+//            if (mPromptForReadExternalStorage) {
+//                requestReadExternalStoragePermission();
+//            } else {
+//                Utils.errMsg(this, "No permission granted for " +
+//                        "READ_EXTERNAL_STORAGE." +
+//                        "\nTo continue restart app and allow or set " +
+//                        "permission manually in the Application Manager."
+//                );
+//            }
+//            return;
+//        }
         Intent i = new Intent(this, ImageFileListActivity.class);
         Log.d(TAG, this.getClass().getSimpleName() + ".selectFile");
         startActivityForResult(i, REQ_DISPLAY_IMAGE);
@@ -800,21 +800,21 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         Log.d(TAG, this.getClass().getSimpleName() + ": " +
                 "openImageForLocation:" + " mUseLocation=" +
                 mUseLocation);
-        if (Build.VERSION.SDK_INT >= 23
-                && ContextCompat.checkSelfPermission(this, Manifest
-                .permission.READ_EXTERNAL_STORAGE) != PackageManager
-                .PERMISSION_GRANTED) {
-            if (mPromptForReadExternalStorage) {
-                requestReadExternalStoragePermission();
-            } else {
-                Utils.errMsg(this, "No permission granted for " +
-                        "READ_EXTERNAL_STORAGE." +
-                        "\nTo continue restart app and allow or set " +
-                        "permission manually in the Application Manager."
-                );
-            }
-            return;
-        }
+//        if (Build.VERSION.SDK_INT >= 23
+//                && ContextCompat.checkSelfPermission(this, Manifest
+//                .permission.READ_EXTERNAL_STORAGE) != PackageManager
+//                .PERMISSION_GRANTED) {
+//            if (mPromptForReadExternalStorage) {
+//                requestReadExternalStoragePermission();
+//            } else {
+//                Utils.errMsg(this, "No permission granted for " +
+//                        "READ_EXTERNAL_STORAGE." +
+//                        "\nTo continue restart app and allow or set " +
+//                        "permission manually in the Application Manager."
+//                );
+//            }
+//            return;
+//        }
         if (!mUseLocation) {
             Utils.errMsg(this, "Not using location. Try Start Location.");
             return;
@@ -959,21 +959,21 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      * @param uri The Uri of the file to open.
      */
     private void setNewImage(Uri uri) {
-        if (Build.VERSION.SDK_INT >= 23
-                && ContextCompat.checkSelfPermission(this, Manifest
-                .permission.READ_EXTERNAL_STORAGE) != PackageManager
-                .PERMISSION_GRANTED) {
-            if (mPromptForReadExternalStorage) {
-                requestReadExternalStoragePermission();
-            } else {
-                Utils.errMsg(this, "No permission granted for " +
-                        "READ_EXTERNAL_STORAGE." +
-                        "\nTo continue restart app and allow or set " +
-                        "permission manually in the Application Manager."
-                );
-            }
-            return;
-        }
+//        if (Build.VERSION.SDK_INT >= 23
+//                && ContextCompat.checkSelfPermission(this, Manifest
+//                .permission.READ_EXTERNAL_STORAGE) != PackageManager
+//                .PERMISSION_GRANTED) {
+//            if (mPromptForReadExternalStorage) {
+//                requestReadExternalStoragePermission();
+//            } else {
+//                Utils.errMsg(this, "No permission granted for " +
+//                        "READ_EXTERNAL_STORAGE." +
+//                        "\nTo continue restart app and allow or set " +
+//                        "permission manually in the Application Manager."
+//                );
+//            }
+//            return;
+//        }
         if (mImageView == null) {
             return;
         }
@@ -1055,12 +1055,12 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 mUseLocation);
         // Do not set up location if there is no permission for
         // READ_EXTERNAL_STORAGE since there will be no map anyway
-        if (Build.VERSION.SDK_INT >= 23
-                && ContextCompat.checkSelfPermission(this, Manifest
-                .permission.READ_EXTERNAL_STORAGE) != PackageManager
-                .PERMISSION_GRANTED) {
-            return;
-        }
+//        if (Build.VERSION.SDK_INT >= 23
+//                && ContextCompat.checkSelfPermission(this, Manifest
+//                .permission.READ_EXTERNAL_STORAGE) != PackageManager
+//                .PERMISSION_GRANTED) {
+//            return;
+//        }
         if (!mUseLocation) {
             return;
         }

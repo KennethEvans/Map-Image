@@ -73,7 +73,7 @@ public class ImageFileListActivity extends AppCompatActivity implements IConstan
     public static List<UriData> getUriList(Context context) {
         ContentResolver contentResolver = context.getContentResolver();
         SharedPreferences prefs = context.getSharedPreferences(
-                "MapImageActivity", Context.MODE_PRIVATE);
+                "MapImageActivity", MODE_PRIVATE);
         String treeUriStr = prefs.getString(PREF_TREE_URI, null);
         if (treeUriStr == null) {
             Utils.errMsg(context, "There is no tree Uri set");
