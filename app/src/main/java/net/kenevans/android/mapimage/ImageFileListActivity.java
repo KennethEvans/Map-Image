@@ -31,14 +31,10 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
 import android.util.Log;
-import android.view.View;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -128,11 +124,7 @@ public class ImageFileListActivity extends AppCompatActivity implements IConstan
         try {
             mUriList = getUriList(this);
             // Sort them by display name
-            Collections.sort(mUriList, new Comparator<UriData>() {
-                public int compare(UriData data1, UriData data2) {
-                    return data1.displayName.compareTo(data2.displayName);
-                }
-            });
+            mUriList.sort((data1, data2) -> data1.displayName.compareTo(data2.displayName));
         } catch (Exception ex) {
             Utils.excMsg(this, "Failed to get list of available files", ex);
         }
@@ -142,21 +134,17 @@ public class ImageFileListActivity extends AppCompatActivity implements IConstan
                 R.layout.row, mUriList);
         mListView.setAdapter(fileList);
 
-        mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int pos,
-                                    long id) {
-                if (pos < 0 || pos >= mUriList.size()) {
-                    return;
-                }
-                // Create the result Intent and include the fileName
-                Intent intent = new Intent();
-                intent.putExtra(EXTRA_IMAGE_URI,
-                        mUriList.get(pos).uri.toString());
-                // Set result and finish this Activity
-                setResult(Activity.RESULT_OK, intent);
-                finish();
+        mListView.setOnItemClickListener((parent, view, pos, id) -> {
+            if (pos < 0 || pos >= mUriList.size()) {
+                return;
             }
+            // Create the result Intent and include the fileName
+            Intent intent = new Intent();
+            intent.putExtra(EXTRA_IMAGE_URI,
+                    mUriList.get(pos).uri.toString());
+            // Set result and finish this Activity
+            setResult(Activity.RESULT_OK, intent);
+            finish();
         });
     }
 

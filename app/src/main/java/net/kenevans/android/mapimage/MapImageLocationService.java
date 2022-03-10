@@ -10,8 +10,6 @@ import android.content.Intent;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Binder;
-import android.os.Build;
-import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
 
@@ -27,7 +25,6 @@ public class MapImageLocationService extends Service implements IConstants {
     private LocationManager mLocationManager = null;
     private String mProvider;
     private LocationListener mLocationListener;
-    private Notification notification;
 
     private final IBinder mBinder = new LocalBinder();
     int mUpdateInterval;
@@ -78,15 +75,6 @@ public class MapImageLocationService extends Service implements IConstants {
                     "MapImageLocationService: onProviderEnabled: " + provider);
             final Intent intent = new Intent(ACTION_PROVIDER_ENABLED);
 
-            sendBroadcast(intent);
-        }
-
-        @Override
-        public void onStatusChanged(String provider, int status,
-                                    Bundle extras) {
-            Log.d(TAG, "MapImageLocationService: onStatusChanged: " + provider);
-            final Intent intent = new Intent(ACTION_STATUS_CHANGED);
-            intent.putExtra(EXTRA_STATUS, status);
             sendBroadcast(intent);
         }
     }
@@ -210,37 +198,32 @@ public class MapImageLocationService extends Service implements IConstants {
     public String createNotificationChannel(Context context) {
         // NotificationChannels are required for Notifications on O (API 26)
         // and above.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // The user-visible name of the channel.
-            CharSequence channelName = getString(R.string.app_name);
-            // The user-visible description of the channel.
-            String channelDescription =
-                    getString(R.string.default_notification_description);
-            String channelId =
-                    getString(R.string.default_notification_channel_id);
-            int channelImportance = NotificationManager.IMPORTANCE_LOW;
-            boolean channelEnableVibrate = false;
+        // The user-visible name of the channel.
+        CharSequence channelName = getString(R.string.app_name);
+        // The user-visible description of the channel.
+        String channelDescription =
+                getString(R.string.default_notification_description);
+        String channelId =
+                getString(R.string.default_notification_channel_id);
+        int channelImportance = NotificationManager.IMPORTANCE_LOW;
+        boolean channelEnableVibrate = false;
 
-            // Initializes NotificationChannel.
-            NotificationChannel notificationChannel =
-                    new NotificationChannel(channelId, channelName,
-                            channelImportance);
-            notificationChannel.setDescription(channelDescription);
-            notificationChannel.enableVibration(channelEnableVibrate);
+        // Initializes NotificationChannel.
+        NotificationChannel notificationChannel =
+                new NotificationChannel(channelId, channelName,
+                        channelImportance);
+        notificationChannel.setDescription(channelDescription);
+        notificationChannel.enableVibration(channelEnableVibrate);
 
-            // Adds NotificationChannel to system. Attempting to create an
-            // existing notificationchannel with its original values performs
-            // no operation, so it's safe to perform the below sequence.
-            NotificationManager notificationManager =
-                    (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-            assert notificationManager != null;
-            notificationManager.createNotificationChannel(notificationChannel);
+        // Adds NotificationChannel to system. Attempting to create an
+        // existing notificationchannel with its original values performs
+        // no operation, so it's safe to perform the below sequence.
+        NotificationManager notificationManager =
+                (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        assert notificationManager != null;
+        notificationManager.createNotificationChannel(notificationChannel);
 
-            return channelId;
-        } else {
-            // Returns null for pre-O (26) devices.
-            return null;
-        }
+        return channelId;
     }
 
     /**
@@ -251,15 +234,21 @@ public class MapImageLocationService extends Service implements IConstants {
     public Notification getNotification() {
         String channelId = createNotificationChannel(this);
         Intent activityIntent = new Intent(this, MapImageActivity.class);
-        PendingIntent viewPendingIntent = PendingIntent.getActivity(this, 0,
-                activityIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent pendingIntent;
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            pendingIntent = PendingIntent.getActivity(this, 0, activityIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        } else {
+            pendingIntent = PendingIntent.getActivity(this, 0, activityIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT);
+        }
         NotificationCompat.Builder notificationBuilder = new
                 NotificationCompat.Builder(
                 this, channelId)
                 .setSmallIcon(R.drawable.ic_stat_mapimage_notification)
                 .setContentTitle(getString(R.string.service_notification_title))
                 .setContentText(getString(R.string.service_notification_text))
-                .setContentIntent(viewPendingIntent);
+                .setContentIntent(pendingIntent);
         return notificationBuilder.build();
     }
 

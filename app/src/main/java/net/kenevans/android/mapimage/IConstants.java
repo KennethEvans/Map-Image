@@ -103,9 +103,8 @@ interface IConstants {
     // Requests
     int REQ_DISPLAY_IMAGE = 0;
     int REQ_ACCESS_LOCATION = 1;
-    int REQ_ACCESS_READ_EXTERNAL_STORAGE = 2;
-//    int REQ_ACCESS_WRITE_EXTERNAL_STORAGE = 3;
-    int REQ_GET_TREE = 10;
+    int REQ_ACCESS_FINE_LOCATION = 2;
+//    int REQ_GET_TREE = 10;
     int REQ_CREATE_DOCUMENT = 11;
 
     /**

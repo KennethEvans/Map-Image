@@ -1,13 +1,13 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 30
+    compileSdkVersion 31
     defaultConfig {
-        minSdkVersion 21
-        targetSdkVersion 30
+        minSdkVersion 29
+        targetSdkVersion 31
         applicationId "net.kenevans.android.mapimage"
-        versionCode 11
-        versionName "3.3.0"
+        versionCode 12
+        versionName "3.4.0"
     }
     buildTypes {
         release {
@@ -29,7 +29,7 @@ android {
 dependencies {
     implementation files('libs/subsampling-scale-image-view-3.10.0.aar')
     implementation files('libs/Jama-1.0.3.jar')
-    implementation 'androidx.exifinterface:exifinterface:1.3.2'
+    implementation 'androidx.exifinterface:exifinterface:1.3.3'
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
-    implementation 'androidx.appcompat:appcompat:1.2.0'
+    implementation 'androidx.appcompat:appcompat:1.4.1'
 }

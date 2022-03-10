@@ -24,6 +24,8 @@ package net.kenevans.android.mapimage;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.util.Log;
 
 import java.io.ByteArrayOutputStream;
@@ -44,12 +46,7 @@ public class Utils implements IConstants {
                     .setTitle(title)
                     .setMessage(msg)
                     .setPositiveButton(context.getText(R.string.ok),
-                            new DialogInterface.OnClickListener() {
-                                public void onClick(DialogInterface dialog,
-                                                    int which) {
-                                    dialog.cancel();
-                                }
-                            }).create();
+                            (dialog, which) -> dialog.cancel()).create();
             alertDialog.show();
         } catch (Throwable t) {
             Log.e(getContextTag(context), "Error using " + title
@@ -101,7 +98,7 @@ public class Utils implements IConstants {
      */
     public static void excMsg(Context context, String msg, Throwable t) {
         String fullMsg = msg += "\n"
-                + context.getText(R.string.exception).toString() + ": " + t
+                + context.getText(R.string.exception) + ": " + t
                 + "\n" + t.getMessage();
         Log.e(TAG, getContextTag(context) + msg);
         alert(context, context.getText(R.string.exception).toString(), fullMsg);
@@ -150,5 +147,4 @@ public class Utils implements IConstants {
         }
         return ext;
     }
-
 }

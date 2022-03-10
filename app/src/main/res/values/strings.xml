@@ -19,7 +19,7 @@
     <string name="update_fast">Fast</string>
     <string name="update_fastest">Fastest</string>
     <string name="update_title">Set Update Interval</string>
-    <string name="gpx_save_title">Add Filename Information\nPrefix, Category, Location, Suffix</string>
+    <string name="gpx_save_title">Add Filename Information\n[Prefx_Date_Cat_LocSuffx.gpx]</string>
 
     <!-- Service -->
     <string name="service_notification_title">MapImage</string>

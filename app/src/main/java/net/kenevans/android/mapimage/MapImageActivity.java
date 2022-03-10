@@ -1,12 +1,10 @@
 package net.kenevans.android.mapimage;
 
 import android.Manifest;
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
@@ -17,15 +15,11 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.PointF;
 import android.location.Location;
-import android.location.LocationProvider;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
-import android.provider.Settings;
 import android.text.InputType;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -51,6 +45,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -64,17 +60,122 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     private Location mLocation;
     private List<PointF> mTrackPointList;
     private boolean mUseLocation = false;
-    private boolean mUseBackgroundLocation = false;
     private boolean mTracking;
     private MapImageLocationService mLocationService;
-    /**
-     * Flag to show whether to prompt for READ_EXTERNAL_STORAGE permission if
-     * it has not been granted.
-     */
-    private boolean mPromptForReadExternalStorage = true;
+    private boolean mLocationDenied;
+    private boolean mFineLocationAsked;
+
     private MapCalibration mMapCalibration;
     private CharSequence[] mUpdateIntervals;
     private int mUpdateInterval = 0;
+
+    // Launcher for PREF_TREE_URI
+    private final ActivityResultLauncher<Intent> openDocumentTreeLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        Log.d(TAG, "openDocumentTreeLauncher: result" +
+                                ".getResultCode()=" + result.getResultCode());
+                        // Find the UID for this application
+                        Log.d(TAG, "URI=" + UriUtils.getApplicationUid(this));
+                        Log.d(TAG,
+                                "Current permissions (initial): "
+                                        + UriUtils.getNPersistedPermissions(this));
+                        try {
+                            if (result.getResultCode() == RESULT_OK) {
+                                // Get Uri from Storage Access Framework.
+                                Uri treeUri = result.getData().getData();
+                                SharedPreferences.Editor editor =
+                                        getPreferences(MODE_PRIVATE)
+                                                .edit();
+                                if (treeUri == null) {
+                                    editor.putString(PREF_TREE_URI, null);
+                                    editor.apply();
+                                    Utils.errMsg(this, "Failed to get " +
+                                            "persistent " +
+                                            "access permissions");
+                                    return;
+                                }
+                                // Persist access permissions.
+                                try {
+                                    this.getContentResolver().takePersistableUriPermission(treeUri,
+                                            Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                                    // Save the current treeUri as PREF_TREE_URI
+                                    editor.putString(PREF_TREE_URI,
+                                            treeUri.toString());
+                                    editor.apply();
+                                    // Trim the persisted permissions
+                                    UriUtils.trimPermissions(this, 1);
+                                } catch (Exception ex) {
+                                    String msg = "Failed to " +
+                                            "takePersistableUriPermission for "
+                                            + treeUri.getPath();
+                                    Utils.excMsg(this, msg, ex);
+                                }
+                                Log.d(TAG,
+                                        "Current permissions (final): "
+                                                + UriUtils.getNPersistedPermissions(this));
+                            }
+                        } catch (Exception ex) {
+                            Log.e(TAG, "Error in openDocumentTreeLauncher: " +
+                                    "startActivity for result", ex);
+                        }
+                    });
+
+
+    // Launcher for display Image
+    private final ActivityResultLauncher<Intent> selectImageLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        Intent intent = result.getData();
+                        Bundle extras = intent.getExtras();
+                        SharedPreferences.Editor editor =
+                                getPreferences(MODE_PRIVATE).edit();
+                        try {
+                            String imageUri = extras.getString(EXTRA_IMAGE_URI);
+                            // Just set the filePath, setNewImage will be
+                            // done in onResume
+                            editor.putString(PREF_IMAGE_URI, imageUri);
+                            editor.apply();
+                        } catch (Exception ex) {
+                            Utils.excMsg(this, "Did not get file name from " +
+                                            "Preferences",
+                                    ex);
+                            return;
+                        }
+                        // Reset the preferences to the defaults
+                        editor.putFloat(PREF_CENTER_X, X_DEFAULT);
+                        editor.putFloat(PREF_CENTER_Y, Y_DEFAULT);
+                        editor.putFloat(PREF_SCALE, SCALE_DEFAULT);
+                        editor.apply();
+                    });
+
+    // Launcher for saving GPX
+    private final ActivityResultLauncher<Intent> saveGpxLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        Intent intent = result.getData();
+                        Uri uri;
+                        if (intent == null) {
+                            Utils.errMsg(this, "Got invalid Uri for creating " +
+                                    "GPX file");
+                        } else {
+                            uri = intent.getData();
+                            if (uri != null) {
+                                List<String> segments = uri.getPathSegments();
+                                Uri.Builder builder = new Uri.Builder();
+                                for (int i = 0; i < segments.size() - 1; i++) {
+                                    builder.appendPath(segments.get(i));
+                                }
+                                Uri parent = builder.build();
+                                Log.d(TAG, "uri=" + uri + " parent=" + parent);
+                                doSaveGpx(uri);
+                            }
+                        }
+                    });
 
     /**
      * Manages the service lifecycle.
@@ -147,11 +248,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     } else if (ACTION_PROVIDER_DISABLED.equals(action)) {
                         mImageView.setLocation(null);
                         mImageView.invalidate();
-                    } else if (ACTION_STATUS_CHANGED.equals(action)) {
-                        int status = intent.getIntExtra(EXTRA_STATUS, 0);
-                        if (status == LocationProvider.OUT_OF_SERVICE) {
-                            mImageView.setLocation(null);
-                        }
                     } else if (ACTION_ERROR.equals(action)) {
                         String msg = intent.getStringExtra(EXTRA_ERROR);
                         Utils.errMsg(MapImageActivity.this, msg);
@@ -187,35 +283,28 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         super.onResume();
         Log.d(TAG, this.getClass().getSimpleName()
                 + ": onResume: mUseLocation=" + mUseLocation
-                + " mUseBackgroundLocation=" + mUseBackgroundLocation
-                + " mUpdateInterval=" + mUpdateInterval);
+                + " mUpdateInterval=" + mUpdateInterval
+                + " mBroadcastReceiver==null=" + (mBroadcastReceiver == null));
         Log.d(TAG,
-                "    mPromptForReadExternalStorage=" + mPromptForReadExternalStorage
-                        + " mBroadcastReceiver==null=" + (mBroadcastReceiver == null));
+                "    mLocationDenied=" + mLocationDenied
+                        + " mFineLocationAsked=" + mFineLocationAsked);
 
-        // Restore the state
-        mUseLocation = ContextCompat.checkSelfPermission(this, Manifest
-                .permission.ACCESS_FINE_LOCATION) ==
-                PackageManager.PERMISSION_GRANTED;
-        if (Build.VERSION.SDK_INT >= 29) {
-            mUseBackgroundLocation = ContextCompat.checkSelfPermission(this,
-                    Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
-                    PackageManager.PERMISSION_GRANTED;
-        } else {
-            // Automatically granted with ACCESS_FINE_LOCATION
-            mUseBackgroundLocation = mUseLocation;
+        // Check location (Will prompt user if either not granted)
+        if (!isLocationGranted()) {
+            requestLocationPermission();
         }
+        if (!mFineLocationAsked && isLocationGranted() && !isFineLocationGranted()) {
+            mFineLocationAsked = true;
+            Utils.warnMsg(this,
+                    "FINE location permission is not granted. Location "
+                            + " results will be inacurate. You can fix this"
+                            + " in Settings|Apps for Map Image.");
+        }
+        // Allow if either is selected
+        mUseLocation = isLocationGranted();
         SharedPreferences prefs = getPreferences(MODE_PRIVATE);
         mTracking = prefs.getBoolean(PREF_TRACKING, false);
         if (!mUseLocation) mTracking = false;
-//        // Too annoying here, happens on Start Tracking
-//        if (mTracking && mUseBackgroundLocation == false) {
-//            Utils.warnMsg(this,
-//                    "Location permission must be \"Allow all the time\""
-//                            + " for trackpoints to be accumulated when"
-//                            + " app is not visible. Do this in Settings"
-//                            + " for Map Image.");
-//        }
         if (mLocationService != null) {
             mLocationService.setTracking(mTracking);
             if (mTracking) {
@@ -235,9 +324,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         mUpdateInterval = prefs.getInt(PREF_UPDATE_INTERVAL, 0);
         Log.d(TAG, this.getClass().getSimpleName()
                 + ": onResume (1): mUseLocation=" + mUseLocation
-                + " mUpdateInterval=" + mUpdateInterval
-                + " mPromptForReadExternalStorage="
-                + mPromptForReadExternalStorage);
+                + " mUpdateInterval=" + mUpdateInterval);
         String uriStr = prefs.getString(PREF_IMAGE_URI, null);
         Uri uri = null;
         if (uriStr != null) {
@@ -246,26 +333,9 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     this.getClass().getSimpleName() + ": onResume: uri="
                             + uri.getLastPathSegment());
         }
-        // Check READ_EXTERNAL_STORAGE
-//        if (Build.VERSION.SDK_INT >= 23
-//                && ContextCompat.checkSelfPermission(this, Manifest
-//                .permission.READ_EXTERNAL_STORAGE) != PackageManager
-//                .PERMISSION_GRANTED) {
-//            if (mPromptForReadExternalStorage) {
-//                requestReadExternalStoragePermission();
-//            }
-//            Log.d(TAG, this.getClass().getSimpleName()
-//                    + ": onResume (2): mPromptForReadExternalStorage="
-//                    + mPromptForReadExternalStorage);
-//            mMapCalibration = null;
-//            setNoImage();
-//            return;
-//        }
         Log.d(TAG, this.getClass().getSimpleName()
                 + ": onResume (3): mUseLocation=" + mUseLocation
-                + " mUpdateInterval=" + mUpdateInterval
-                + " mPromptForReadExternalStorage="
-                + mPromptForReadExternalStorage);
+                + " mUpdateInterval=" + mUpdateInterval);
         if (uri == null) {
             mMapCalibration = null;
             setNoImage();
@@ -315,81 +385,24 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         }
         editor.apply();
         try {
-            if (mBroadcastReceiver != null)
+            // There is no easy way to tell if it is registered
+            if (mBroadcastReceiver != null) {
                 unregisterReceiver(mBroadcastReceiver);
+            }
         } catch (Exception ex) {
             Log.d(TAG, this.getClass().getSimpleName()
-                    + ": unregisterReceiver: exception");
+                    + ": onPause: Exception on unregisterReceiver");
         }
         Log.d(TAG, this.getClass().getSimpleName() + ": onPause: end");
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode,
-                                    Intent intent) {
-        super.onActivityResult(requestCode, resultCode, intent);
-        // DEBUG
-        Log.d(TAG, this.getClass().getSimpleName()
-                + ".onActivityResult: requestCode=" + requestCode
-                + " resultCode=" + resultCode);
-        if (requestCode == REQ_DISPLAY_IMAGE && resultCode == RESULT_OK) {
-            Bundle extras = intent.getExtras();
-            SharedPreferences.Editor editor =
-                    getPreferences(MODE_PRIVATE).edit();
-            try {
-                String imageUri = extras.getString(EXTRA_IMAGE_URI);
-                // Just set the filePath, setNewImage will be done in onResume
-                editor.putString(PREF_IMAGE_URI, imageUri);
-                editor.apply();
-            } catch (Exception ex) {
-                Utils.excMsg(this, "Did not get file name from Preferences",
-                        ex);
-                return;
-            }
-            // Reset the preferences to the defaults
-            editor.putFloat(PREF_CENTER_X, X_DEFAULT);
-            editor.putFloat(PREF_CENTER_Y, Y_DEFAULT);
-            editor.putFloat(PREF_SCALE, SCALE_DEFAULT);
-            editor.apply();
-        } else if (requestCode == REQ_CREATE_DOCUMENT &&
-                resultCode == Activity.RESULT_OK) {
-            Uri uri;
-            if (intent == null) {
-                Utils.errMsg(this, "Got invalid Uri for creating GPX file");
-            } else {
-                uri = intent.getData();
-                if (uri != null) {
-                    List<String> segments = uri.getPathSegments();
-                    Uri.Builder builder = new Uri.Builder();
-                    for (int i = 0; i < segments.size() - 1; i++) {
-                        builder.appendPath(segments.get(i));
-                    }
-                    Uri parent = builder.build();
-                    Log.d(TAG, "uri=" + uri + " parent=" + parent);
-                    doSaveGpx(uri);
-                }
-            }
-        } else if (requestCode == REQ_GET_TREE && resultCode == RESULT_OK) {
-            Uri treeUri;
-            // Get Uri from Storage Access Framework.
-            treeUri = intent.getData();
-            if (treeUri != null) {
-                // Keep them from accumulating
-                UriUtils.releaseAllPermissions(this);
-                SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE)
-                        .edit();
-                editor.putString(PREF_TREE_URI, treeUri.toString());
-                editor.apply();
-
-                // Persist access permissions.
-                final int takeFlags = intent.getFlags()
-                        & (Intent.FLAG_GRANT_READ_URI_PERMISSION |
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                this.getContentResolver().takePersistableUriPermission(treeUri,
-                        takeFlags);
-            }
-        }
-
+    public void onBackPressed() {
+        // This seems to be necessary with Android 12
+        // Otherwise onDestroy is not called
+        Log.d(TAG, this.getClass().getSimpleName() + ": onBackPressed");
+        finish();
+        super.onBackPressed();
     }
 
     @Override
@@ -408,53 +421,38 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                                            @NonNull String[]
                                                    permissions,
                                            @NonNull int[] grantResults) {
-        Log.d(TAG, this.getClass().getSimpleName() + ": " +
-                "onRequestPermissionsResult:" + " nPermissions=" + permissions.length);
-        for (int i = 0; i < permissions.length; i++) {
-            Log.d(TAG, "   permissions[" + i + "]=" + permissions[i]
-                    + " grantResults[" + i + "]=" + grantResults[i]);
-        }
         Log.d(TAG, "    mUseLocation=" + mUseLocation);
-        Log.d(TAG, "    mUseBackgroundLocation=" + mUseBackgroundLocation);
-        Log.d(TAG, "    mPromptForReadExternalStorage="
-                + mPromptForReadExternalStorage);
-        switch (requestCode) {
-            case REQ_ACCESS_LOCATION:
-                // LOCATION
-                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Log.d(TAG, "FINE_LOCATION granted");
-                    mUseLocation = true;
-                } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
-                    Log.d(TAG, "FINE_LOCATION denied");
-                    mUseLocation = false;
-                } else if (Build.VERSION.SDK_INT >= 29 &&
-                        grantResults[1] == PackageManager.PERMISSION_GRANTED) {
-                    Log.d(TAG, "BACKGROUND_LOCATION granted");
-                    mUseBackgroundLocation = true;
-                } else if (Build.VERSION.SDK_INT >= 29 &&
-                        grantResults[1] == PackageManager.PERMISSION_DENIED) {
-                    Log.d(TAG, "BACKGROUND_LOCATION denied");
-                    mUseBackgroundLocation = false;
+        super.onRequestPermissionsResult(requestCode, permissions,
+                grantResults);
+        if (requestCode == REQ_ACCESS_LOCATION) {// LOCATION (Handle multiple)
+            for (int i = 0; i < permissions.length; i++) {
+                if (permissions[i].equals(Manifest.
+                        permission.ACCESS_COARSE_LOCATION)) {
+                    if (grantResults[i] == PackageManager.PERMISSION_GRANTED) {
+                        Log.d(TAG, "REQ_ACCESS_LOCATION: COARSE_LOCATION " +
+                                "granted");
+                    } else if (grantResults[i] == PackageManager.PERMISSION_DENIED) {
+                        Log.d(TAG, "REQ_ACCESS_LOCATION: COARSE_LOCATION " +
+                                "denied");
+                    }
+                } else if (permissions[i].equals(Manifest.
+                        permission.ACCESS_FINE_LOCATION)) {
+                    if (grantResults[i] == PackageManager.PERMISSION_GRANTED) {
+                        Log.d(TAG, "REQ_ACCESS_LOCATION: FINE_LOCATION " +
+                                "granted");
+                    } else if (grantResults[i] == PackageManager.PERMISSION_DENIED) {
+                        Log.d(TAG, "REQ_ACCESS_LOCATION: FINE_LOCATION " +
+                                "denied");
+                    }
                 }
-                if (Build.VERSION.SDK_INT < 29)
-                    mUseBackgroundLocation = mUseLocation;
-                if (mUseLocation || mUseBackgroundLocation) {
-                    setupLocation();
-                } else {
-                    disableLocation();
-                }
-                break;
-            case REQ_ACCESS_READ_EXTERNAL_STORAGE:
-                // READ_EXTERNAL_STORAGE
-                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Log.d(TAG, "READ_EXTERNAL_STORAGE granted");
-                    mPromptForReadExternalStorage = true;
-                } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
-                    Log.d(TAG, "READ_EXTERNAL_STORAGE denied");
-                    mPromptForReadExternalStorage = false;
-                    mUseLocation = false;
-                }
-                break;
+            }
+            mUseLocation = isLocationGranted();
+            mLocationDenied = !mUseLocation;
+            if (mUseLocation) {
+                setupLocation();
+            } else {
+                disableLocation();
+            }
         }
     }
 
@@ -465,14 +463,11 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         getMenuInflater().inflate(R.menu.main_menu, menu);
 
         // Capture global exceptions
-        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-            @Override
-            public void uncaughtException(@NonNull Thread paramThread,
-                                          @NonNull Throwable paramThrowable) {
-                Log.e(TAG, "Unexpected exception:", paramThrowable);
-                // Any non-zero exit code
-                System.exit(2);
-            }
+        Thread.setDefaultUncaughtExceptionHandler((paramThread,
+                                                   paramThrowable) -> {
+            Log.e(TAG, "Unexpected exception:", paramThrowable);
+            // Any non-zero exit code
+            System.exit(2);
         });
 
         return true;
@@ -510,15 +505,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             if (mUseLocation) {
                 disableLocation();
             } else {
-//                if (Build.VERSION.SDK_INT >= 23
-//                        && ContextCompat.checkSelfPermission(this, Manifest
-//                        .permission.READ_EXTERNAL_STORAGE) != PackageManager
-//                        .PERMISSION_GRANTED) {
-//                    Utils.warnMsg(this, "Location cannot be started if " +
-//                            "there" +
-//                            " is no permission for READ_EXTERNAL_STORAGE");
-//                    return true;
-//                }
                 if (mUseLocation) {
                     Utils.warnMsg(this, "Location is already started");
                     return true;
@@ -529,12 +515,11 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             return true;
         } else if (id == R.id.start_tracking) {
             mTracking = !mTracking;
-            if (mTracking && !mUseBackgroundLocation) {
+            if (mTracking && !isFineLocationGranted()) {
                 Utils.warnMsg(this,
-                        "Location permission must be \"Allow all the time\""
-                                + " for trackpoints to be accumulated when"
-                                + " app is not visible. Do this in Settings"
-                                + " for Map Image.");
+                        "FINE location permission is not granted. Tracking "
+                                + " results will be inacurate. You can fix this"
+                                + " in Settings|Apps for Map Image.");
             }
             if (mLocationService != null) {
                 mLocationService.setTracking(mTracking);
@@ -707,33 +692,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                     }
                 }
             }
-//            if (Build.VERSION.SDK_INT >= 23
-//                    && ContextCompat.checkSelfPermission(this, Manifest
-//                    .permission.READ_EXTERNAL_STORAGE) != PackageManager
-//                    .PERMISSION_GRANTED) {
-//                info.append("No permission granted for " +
-//                        "READ_EXTERNAL_STORAGE\n");
-//            }
-            if (Build.VERSION.SDK_INT >= 23
-                    && ContextCompat.checkSelfPermission(this, Manifest
-                    .permission.ACCESS_COARSE_LOCATION) != PackageManager
-                    .PERMISSION_GRANTED
-                    && ContextCompat.checkSelfPermission(this, Manifest
-                    .permission.ACCESS_FINE_LOCATION) != PackageManager
-                    .PERMISSION_GRANTED) {
-                info.append("No permission granted for " +
-                        "ACCESS_FINE_LOCATION\n");
-            }
-            if (Build.VERSION.SDK_INT >= 23
-                    && ContextCompat.checkSelfPermission(this, Manifest
-                    .permission.ACCESS_BACKGROUND_LOCATION) != PackageManager
-                    .PERMISSION_GRANTED
-                    && ContextCompat.checkSelfPermission(this, Manifest
-                    .permission.ACCESS_BACKGROUND_LOCATION) != PackageManager
-                    .PERMISSION_GRANTED) {
-                info.append("No permission granted for " +
-                        "ACCESS_BACKGROUND_LOCATION\n");
-            }
+            info.append(UriUtils.getRequestedPermissionsInfo(this));
             String treeUriStr = prefs.getString(PREF_TREE_URI, null);
             if (treeUriStr == null) {
                 info.append("Image Directory: Not set");
@@ -773,24 +732,9 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      * Brings up an ImageListActivity with a list of files to open.
      */
     private void selectImage() {
-//        if (Build.VERSION.SDK_INT >= 23
-//                && ContextCompat.checkSelfPermission(this, Manifest
-//                .permission.READ_EXTERNAL_STORAGE) != PackageManager
-//                .PERMISSION_GRANTED) {
-//            if (mPromptForReadExternalStorage) {
-//                requestReadExternalStoragePermission();
-//            } else {
-//                Utils.errMsg(this, "No permission granted for " +
-//                        "READ_EXTERNAL_STORAGE." +
-//                        "\nTo continue restart app and allow or set " +
-//                        "permission manually in the Application Manager."
-//                );
-//            }
-//            return;
-//        }
-        Intent i = new Intent(this, ImageFileListActivity.class);
+        Intent intent = new Intent(this, ImageFileListActivity.class);
         Log.d(TAG, this.getClass().getSimpleName() + ".selectFile");
-        startActivityForResult(i, REQ_DISPLAY_IMAGE);
+        selectImageLauncher.launch(intent);
     }
 
     /**
@@ -800,27 +744,11 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         Log.d(TAG, this.getClass().getSimpleName() + ": " +
                 "openImageForLocation:" + " mUseLocation=" +
                 mUseLocation);
-//        if (Build.VERSION.SDK_INT >= 23
-//                && ContextCompat.checkSelfPermission(this, Manifest
-//                .permission.READ_EXTERNAL_STORAGE) != PackageManager
-//                .PERMISSION_GRANTED) {
-//            if (mPromptForReadExternalStorage) {
-//                requestReadExternalStoragePermission();
-//            } else {
-//                Utils.errMsg(this, "No permission granted for " +
-//                        "READ_EXTERNAL_STORAGE." +
-//                        "\nTo continue restart app and allow or set " +
-//                        "permission manually in the Application Manager."
-//                );
-//            }
-//            return;
-//        }
         if (!mUseLocation) {
             Utils.errMsg(this, "Not using location. Try Start Location.");
             return;
         }
-        if (Build.VERSION.SDK_INT >= 23
-                && ContextCompat.checkSelfPermission(this, Manifest
+        if (ContextCompat.checkSelfPermission(this, Manifest
                 .permission.ACCESS_COARSE_LOCATION) != PackageManager
                 .PERMISSION_GRANTED
                 && ContextCompat.checkSelfPermission(this, Manifest
@@ -867,33 +795,27 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(getText(R.string.open_image_location_title));
         builder.setSingleChoiceItems(items, 0,
-                new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, final int
-                            item) {
-                        dialog.dismiss();
-                        if (item < 0 || item >= foundList.size()) {
-                            Utils.errMsg(MapImageActivity.this,
-                                    "Invalid item");
-                            return;
-                        }
-                        SharedPreferences.Editor editor =
-                                getPreferences(MODE_PRIVATE).edit();
-                        editor.putString(PREF_IMAGE_URI,
-                                foundList.get(item).uri.toString());
-                        // Reset the preferences to the defaults
-                        editor.putFloat(PREF_CENTER_X, X_DEFAULT);
-                        editor.putFloat(PREF_CENTER_Y, Y_DEFAULT);
-                        editor.putFloat(PREF_SCALE, SCALE_DEFAULT);
-                        editor.apply();
-                        setNewImage(foundList.get(item).uri);
+                (dialog, item) -> {
+                    dialog.dismiss();
+                    if (item < 0 || item >= foundList.size()) {
+                        Utils.errMsg(MapImageActivity.this,
+                                "Invalid item");
+                        return;
                     }
+                    SharedPreferences.Editor editor =
+                            getPreferences(MODE_PRIVATE).edit();
+                    editor.putString(PREF_IMAGE_URI,
+                            foundList.get(item).uri.toString());
+                    // Reset the preferences to the defaults
+                    editor.putFloat(PREF_CENTER_X, X_DEFAULT);
+                    editor.putFloat(PREF_CENTER_Y, Y_DEFAULT);
+                    editor.putFloat(PREF_SCALE, SCALE_DEFAULT);
+                    editor.apply();
+                    setNewImage(foundList.get(item).uri);
                 });
         builder.setNegativeButton("Cancel",
-                new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int
-                            whichButton) {
-                        // Do nothing
-                    }
+                (dialog, whichButton) -> {
+                    // Do nothing
                 });
         AlertDialog alert = builder.create();
         alert.show();
@@ -959,21 +881,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
      * @param uri The Uri of the file to open.
      */
     private void setNewImage(Uri uri) {
-//        if (Build.VERSION.SDK_INT >= 23
-//                && ContextCompat.checkSelfPermission(this, Manifest
-//                .permission.READ_EXTERNAL_STORAGE) != PackageManager
-//                .PERMISSION_GRANTED) {
-//            if (mPromptForReadExternalStorage) {
-//                requestReadExternalStoragePermission();
-//            } else {
-//                Utils.errMsg(this, "No permission granted for " +
-//                        "READ_EXTERNAL_STORAGE." +
-//                        "\nTo continue restart app and allow or set " +
-//                        "permission manually in the Application Manager."
-//                );
-//            }
-//            return;
-//        }
         if (mImageView == null) {
             return;
         }
@@ -1053,38 +960,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         Log.d(TAG, this.getClass().getSimpleName() + ": " +
                 "setupLocation:" + " mUseLocation=" +
                 mUseLocation);
-        // Do not set up location if there is no permission for
-        // READ_EXTERNAL_STORAGE since there will be no map anyway
-//        if (Build.VERSION.SDK_INT >= 23
-//                && ContextCompat.checkSelfPermission(this, Manifest
-//                .permission.READ_EXTERNAL_STORAGE) != PackageManager
-//                .PERMISSION_GRANTED) {
-//            return;
-//        }
-        if (!mUseLocation) {
-            return;
-        }
-        if (Build.VERSION.SDK_INT >= 23
-                && ContextCompat.checkSelfPermission(this, Manifest
-                .permission.ACCESS_COARSE_LOCATION) != PackageManager
-                .PERMISSION_GRANTED
-                && ContextCompat.checkSelfPermission(this, Manifest
-                .permission.ACCESS_FINE_LOCATION) != PackageManager
-                .PERMISSION_GRANTED) {
-            // Don't set mUseLocation = false here
-            // It will be set on onRequestPermissionResult if not allowed
-            requestLocationPermission();
-            return;
-        } else if (Build.VERSION.SDK_INT < 23) {
-            // Bring up dialog to enable location
-            // Only used on Android 22 and lower
-            if (mLocationService == null) {
-                Intent intent = new Intent(Settings
-                        .ACTION_LOCATION_SOURCE_SETTINGS);
-                startActivity(intent);
-            }
-        }
-
+        // Check location
+        if (!isLocationGranted()) return;
         // Start the service
         if (mLocationService == null) {
             bindService(new Intent(this, MapImageLocationService.class),
@@ -1117,15 +994,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             return;
         }
 
-        String msg;
-        String state = Environment.getExternalStorageState();
-        if (!Environment.MEDIA_MOUNTED.equals(state)) {
-            msg = "External Storage is not available";
-            Log.e(TAG, msg);
-            Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
-            return;
-        }
-        // Get an identifier
+        // Prompt
         AlertDialog.Builder dialog = new AlertDialog.Builder(this);
         dialog.setTitle(R.string.gpx_save_title);
         SharedPreferences prefs = getPreferences(MODE_PRIVATE);
@@ -1165,29 +1034,23 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
 
         dialog.setView(ll);
         dialog.setPositiveButton(R.string.ok,
-                new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        String prefix = prefixBox.getText().toString();
-                        String category = categoryBox.getText().toString();
-                        String location = locationBox.getText().toString();
-                        String suffix = suffixBox.getText().toString();
-                        SharedPreferences.Editor editor =
-                                getPreferences(MODE_PRIVATE).edit();
-                        editor.putString(PREF_GPX_FILENAME_PREFIX, prefix);
-                        editor.putString(PREF_GPX_CATEGORY, category);
-                        editor.putString(PREF_GPX_LOCATION, location);
-                        editor.putString(PREF_GPX_FILENAME_SUFFIX, suffix);
-                        editor.apply();
-                        generateGpxSaveIntent(prefix, category, location,
-                                suffix);
-                    }
+                (dialog1, which) -> {
+                    String prefix = prefixBox.getText().toString();
+                    String category = categoryBox.getText().toString();
+                    String location = locationBox.getText().toString();
+                    String suffix = suffixBox.getText().toString();
+                    SharedPreferences.Editor editor =
+                            getPreferences(MODE_PRIVATE).edit();
+                    editor.putString(PREF_GPX_FILENAME_PREFIX, prefix);
+                    editor.putString(PREF_GPX_CATEGORY, category);
+                    editor.putString(PREF_GPX_LOCATION, location);
+                    editor.putString(PREF_GPX_FILENAME_SUFFIX, suffix);
+                    editor.apply();
+                    generateGpxSaveIntent(prefix, category, location,
+                            suffix);
                 });
         dialog.setNegativeButton(R.string.cancel,
-                new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                    }
+                (dialog12, which) -> {
                 });
         dialog.show();
     }
@@ -1239,16 +1102,15 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             intent.addCategory(Intent.CATEGORY_OPENABLE);
             intent.setType("application/gpx+xml");
             intent.putExtra(Intent.EXTRA_TITLE, fileName);
-            if (Build.VERSION.SDK_INT >= 26) {
-                // Set initialDir
-                SharedPreferences prefs = getPreferences(MODE_PRIVATE);
-                String lastGpxUri = prefs.getString(PREF_LAST_GPX_URI, null);
-                if (lastGpxUri != null) {
-                    intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI,
-                            lastGpxUri);
-                }
+            // Set initialDir
+            SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+            String lastGpxUri = prefs.getString(PREF_LAST_GPX_URI,
+                    null);
+            if (lastGpxUri != null) {
+                intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI,
+                        lastGpxUri);
             }
-            startActivityForResult(intent, REQ_CREATE_DOCUMENT);
+            saveGpxLauncher.launch(intent);
         } catch (Exception ex) {
             Utils.excMsg(this, "Error requesting saving of GPX file", ex);
         }
@@ -1351,42 +1213,32 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(getText(R.string.update_title));
         builder.setSingleChoiceItems(items, mUpdateInterval,
-                new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int item) {
-                        dialog.dismiss();
-                        if (item < 0 || item >= mUpdateIntervals.length) {
-                            Utils.errMsg(MapImageActivity.this,
-                                    "Invalid update interval");
-                            mUpdateInterval = 0;
-                        } else {
-                            mUpdateInterval = item;
-                        }
-                        SharedPreferences.Editor editor =
-                                getPreferences(MODE_PRIVATE).edit();
-                        editor.putInt(PREF_UPDATE_INTERVAL,
-                                mUpdateInterval);
-                        editor.apply();
-                        if (mLocationService != null) {
-                            try {
-                                mLocationService.setUpdateInterval(mUpdateInterval);
-                            } catch (final SecurityException ex) {
-                                runOnUiThread(new Runnable() {
-                                    public void run() {
-                                        Utils.excMsg(MapImageActivity.this,
-                                                "SecurityException during "
-                                                        + "setupLocation", ex);
-                                    }
-                                });
-                            } catch (final IllegalArgumentException ex) {
-                                runOnUiThread(new Runnable() {
-                                    public void run() {
-                                        Utils.excMsg(MapImageActivity.this,
-                                                "IllegalArgument exception " +
-                                                        "during " +
-                                                        "setupLocation", ex);
-                                    }
-                                });
-                            }
+                (dialog, item) -> {
+                    dialog.dismiss();
+                    if (item < 0 || item >= mUpdateIntervals.length) {
+                        Utils.errMsg(MapImageActivity.this,
+                                "Invalid update interval");
+                        mUpdateInterval = 0;
+                    } else {
+                        mUpdateInterval = item;
+                    }
+                    SharedPreferences.Editor editor =
+                            getPreferences(MODE_PRIVATE).edit();
+                    editor.putInt(PREF_UPDATE_INTERVAL,
+                            mUpdateInterval);
+                    editor.apply();
+                    if (mLocationService != null) {
+                        try {
+                            mLocationService.setUpdateInterval(mUpdateInterval);
+                        } catch (final SecurityException ex) {
+                            runOnUiThread(() -> Utils.excMsg(MapImageActivity.this,
+                                    "SecurityException during "
+                                            + "setupLocation", ex));
+                        } catch (final IllegalArgumentException ex) {
+                            runOnUiThread(() -> Utils.excMsg(MapImageActivity.this,
+                                    "IllegalArgument exception " +
+                                            "during " +
+                                            "setupLocation", ex));
                         }
                     }
                 });
@@ -1426,12 +1278,11 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION &
                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-//        intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, uriToLoad);
-        startActivityForResult(intent, REQ_GET_TREE);
+        openDocumentTreeLauncher.launch(intent);
     }
 
     /**
-     * Get the calinration file Uri corresponding to the given Uri.
+     * Get the calibration file Uri corresponding to the given Uri.
      *
      * @param uri The Uri.
      * @return The calibration Uri.
@@ -1451,29 +1302,49 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     }
 
     /**
-     * Request permission for FINE_LOCATION.
+     * Determines if either COARSE or FINE location permission is granted.
+     *
+     * @return If granted.
      */
-    private void requestLocationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    protected boolean isLocationGranted() {
+        return ContextCompat.checkSelfPermission(this, Manifest
+                .permission.ACCESS_COARSE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED |
+                ContextCompat.checkSelfPermission(this, Manifest
+                        .permission.ACCESS_FINE_LOCATION) ==
+                        PackageManager.PERMISSION_GRANTED;
+    }
+
+    /**
+     * Determines if FINE location permission is granted.
+     *
+     * @return If granted.
+     */
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    protected boolean isFineLocationGranted() {
+        return ContextCompat.checkSelfPermission(this, Manifest
+                .permission.ACCESS_FINE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED;
+    }
+
+    /**
+     * Determines if location (COARSE or both) is granted, and calls
+     * ActivityCompat.requestPermissions if location not been previously denied.
+     */
+    protected void requestLocationPermission() {
+        Log.d(TAG, this.getClass().getSimpleName()
+                + ": requestLocationPermission: mLocationDenied=" + mLocationDenied
+                + " mFineLocationAsked=" + mFineLocationAsked);
+        // Check location
+        if (!isLocationGranted() && !mLocationDenied) {
+            // One or both location permissions are not granted
+            Log.d(TAG, "    Calling ActivityCompat.requestPermissions");
             ActivityCompat.requestPermissions(this, new String[]{
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_BACKGROUND_LOCATION},
-                    REQ_ACCESS_LOCATION);
-        } else {
-            ActivityCompat.requestPermissions(this, new String[]{
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
                             Manifest.permission.ACCESS_FINE_LOCATION},
                     REQ_ACCESS_LOCATION);
         }
     }
 
-    /**
-     * Request permission for READ_EXTERNAL_STORAGE.
-     */
-    private void requestReadExternalStoragePermission() {
-        Log.d(TAG, this.getClass().getSimpleName() + ": " +
-                "requestReadExternalStoragePermission:");
-        ActivityCompat.requestPermissions(this, new String[]{Manifest
-                        .permission.READ_EXTERNAL_STORAGE},
-                REQ_ACCESS_READ_EXTERNAL_STORAGE);
-    }
 }
