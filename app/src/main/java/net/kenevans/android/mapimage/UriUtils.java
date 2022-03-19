@@ -183,8 +183,9 @@ public class UriUtils implements IConstants {
         // Add everything in permissionList to sortedList
         List<UriPermission> sortedList = new ArrayList<>(permissionList);
         // Sort with newest first
-        sortedList.sort((p1, p2) -> Long.compare(p2.getPersistedTime(),
-                p1.getPersistedTime()));
+        Collections.sort(sortedList,
+                (p1, p2) -> Long.compare(p2.getPersistedTime(),
+                        p1.getPersistedTime()));
         for (int i = nToKeep; i < nPermissions; i++) {
             UriPermission permission = sortedList.get(i);
             resolver.releasePersistableUriPermission(permission.getUri(),

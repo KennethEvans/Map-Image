@@ -49,7 +49,6 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 public class MapImageActivity extends AppCompatActivity implements IConstants {
@@ -285,9 +284,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
                 + ": onResume: mUseLocation=" + mUseLocation
                 + " mUpdateInterval=" + mUpdateInterval
                 + " mBroadcastReceiver==null=" + (mBroadcastReceiver == null));
-        Log.d(TAG,
-                "    mLocationDenied=" + mLocationDenied
-                        + " mFineLocationAsked=" + mFineLocationAsked);
+        Log.d(TAG, "    mLocationDenied=" + mLocationDenied
+                + " mFineLocationAsked=" + mFineLocationAsked);
 
         // Check location (Will prompt user if either not granted)
         if (!isLocationGranted()) {
@@ -297,7 +295,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             mFineLocationAsked = true;
             Utils.warnMsg(this,
                     "FINE location permission is not granted. Location "
-                            + " results will be inacurate. You can fix this"
+                            + " results will be inaccurate. You can fix this"
                             + " in Settings|Apps for Map Image.");
         }
         // Allow if either is selected
@@ -424,7 +422,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         Log.d(TAG, "    mUseLocation=" + mUseLocation);
         super.onRequestPermissionsResult(requestCode, permissions,
                 grantResults);
-        if (requestCode == REQ_ACCESS_LOCATION) {// LOCATION (Handle multiple)
+        if (requestCode == REQ_ACCESS_LOCATION) {
+            // LOCATION (Handle multiple)
             for (int i = 0; i < permissions.length; i++) {
                 if (permissions[i].equals(Manifest.
                         permission.ACCESS_COARSE_LOCATION)) {
@@ -465,7 +464,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         // Capture global exceptions
         Thread.setDefaultUncaughtExceptionHandler((paramThread,
                                                    paramThrowable) -> {
-            Log.e(TAG, "Unexpected exception:", paramThrowable);
+            Log.e(TAG, "Unexpected exception: ", paramThrowable);
             // Any non-zero exit code
             System.exit(2);
         });
@@ -518,7 +517,8 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
             if (mTracking && !isFineLocationGranted()) {
                 Utils.warnMsg(this,
                         "FINE location permission is not granted. Tracking "
-                                + " results will be inacurate. You can fix this"
+                                + " results will be inaccurate. You can fix " +
+                                "this"
                                 + " in Settings|Apps for Map Image.");
             }
             if (mLocationService != null) {
@@ -1330,7 +1330,7 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
 
     /**
      * Determines if location (COARSE or both) is granted, and calls
-     * ActivityCompat.requestPermissions if location not been previously denied.
+     * requestPermissions if location not been previously denied.
      */
     protected void requestLocationPermission() {
         Log.d(TAG, this.getClass().getSimpleName()
@@ -1339,12 +1339,11 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         // Check location
         if (!isLocationGranted() && !mLocationDenied) {
             // One or both location permissions are not granted
-            Log.d(TAG, "    Calling ActivityCompat.requestPermissions");
-            ActivityCompat.requestPermissions(this, new String[]{
+            Log.d(TAG, "    Calling requestPermissions");
+            requestPermissions(new String[]{
                             Manifest.permission.ACCESS_COARSE_LOCATION,
                             Manifest.permission.ACCESS_FINE_LOCATION},
                     REQ_ACCESS_LOCATION);
         }
     }
-
 }
