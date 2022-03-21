@@ -258,6 +258,13 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, this.getClass().getSimpleName() + ": onCreate");
         super.onCreate(savedInstanceState);
+        // Capture global exceptions
+        Thread.setDefaultUncaughtExceptionHandler((paramThread,
+                                                   paramThrowable) -> {
+            Log.e(TAG, "Unexpected exception :", paramThrowable);
+            // Any non-zero exit code
+            System.exit(2);
+        });
 
         // Create update intervals here so getText is available
         mUpdateIntervals = new CharSequence[]{
@@ -460,15 +467,6 @@ public class MapImageActivity extends AppCompatActivity implements IConstants {
         // Inflate the menu; this adds items to the action bar if it is
         // present.
         getMenuInflater().inflate(R.menu.main_menu, menu);
-
-        // Capture global exceptions
-        Thread.setDefaultUncaughtExceptionHandler((paramThread,
-                                                   paramThrowable) -> {
-            Log.e(TAG, "Unexpected exception: ", paramThrowable);
-            // Any non-zero exit code
-            System.exit(2);
-        });
-
         return true;
     }
 

@@ -50,6 +50,14 @@ public class ImageFileListActivity extends AppCompatActivity implements IConstan
     public void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, this.getClass().getSimpleName() + ": onCreate");
         super.onCreate(savedInstanceState);
+        // Capture global exceptions
+        Thread.setDefaultUncaughtExceptionHandler((paramThread,
+                                                   paramThrowable) -> {
+            Log.e(TAG, "Unexpected exception :", paramThrowable);
+            // Any non-zero exit code
+            System.exit(2);
+        });
+
         setContentView(R.layout.list_view);
         mListView = findViewById(R.id.mainListView);
 
